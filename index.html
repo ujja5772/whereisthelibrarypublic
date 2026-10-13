@@ -260,6 +260,11 @@ textarea.write:focus{border-color:var(--sky);outline:none}
 .pubbtns{grid-column:1/-1;display:flex;gap:4px;flex-wrap:nowrap;position:relative;z-index:2}.pubbtns .btn{padding:4px 8px;font-size:.8rem;box-shadow:none}.qcard.pubmine{border-style:dashed}
 .showlist{list-style:none;padding:0;margin:6px 0 0;display:grid;gap:4px}.showlist li{padding:6px 10px;border-radius:10px;background:var(--surface-2)}.showlist li.ok{background:#eafaf0}
 .sharebox{border:2px dashed var(--line);border-radius:16px;padding:10px 14px;background:var(--surface)}.sharebox summary{cursor:pointer}
+.mebox{display:flex;flex-direction:column;align-items:flex-end;gap:4px}.me .pen{font-size:.8rem;opacity:.75}
+.mymapsbtn{border:2px dashed var(--sky);background:var(--sky-soft);color:var(--ink);border-radius:99px;padding:3px 12px;font-size:.85rem;font-family:var(--f-display)}
+.minepop{position:fixed;top:96px;right:16px;width:min(380px,calc(100% - 32px));max-height:calc(100dvh - 120px);overflow:auto;z-index:15;background:var(--surface);border:2px solid var(--sky);border-radius:18px;padding:12px 14px;box-shadow:0 10px 30px rgba(28,51,64,.25)}
+.minepop .qlist{grid-template-columns:minmax(0,1fr)}
+.mymaps{border:2px dashed var(--line);border-radius:16px;padding:10px 14px;background:var(--surface)}.mymaps summary{cursor:pointer}.mymaps .qlist{grid-template-columns:minmax(0,1fr)}
 .startbox{border:2px solid #e0245e;border-radius:16px;padding:12px 14px;background:#fff0f4;display:flex;flex-direction:column;gap:4px}
 .startbox .sub{color:#c01c50;margin-bottom:2px;font-size:1.08rem}.startbox .stnow{font-size:.9rem}
 .maptip{background:#e0245e;color:#fff;border-radius:12px;padding:7px 12px;font-size:.95rem;text-align:center}
@@ -553,18 +558,28 @@ const BANK = [
   ["It's between the <u>___</u> and the <u>___</u>.",'그것은 ___와 ___ 사이에 있어요.']
 ];
 /* 먼저 끝낸 친구용 연습 지도 (기록·하트 없음, 정답 건물 이름은 쓰지 않음) */
-const EXAMPLES = [   // 연습 지도: 갈수록 도는 횟수가 늘어나요 (단계 표시는 하지 않아요)
-  { ex:1, title:'모퉁이 두 번, 보석 찾기', level:2, size:7, icon:'t_gem', start:{r: 6, c: 5, d: 0}, treasure:{r: 2, c: 2},
+const EXAMPLES = [   // 연습 퀘스트: 갈수록 도는 횟수가 늘어나요 (단계 표시는 하지 않아요)
+  { ex:1, title:'잃어버린 왕관의 비밀', level:1, size:7, icon:'t_crown', start:null, treasure:{r:2,c:6},
+    layout:[{r:1,c:6,b:'tree2'},{r:2,c:2,b:'school'},{r:1,c:1,b:'restaurant'},{r:5,c:2,b:'cafe'},{r:5,c:6,b:'park'},{r:5,c:5,b:'fountain'},{r:1,c:2,b:'fence'},{r:0,c:1,b:'zoo'},{r:1,c:0,b:'bakery'},{r:6,c:1,b:'pond'},{r:4,c:0,b:'fire'}],
+    directions:"Go straight three blocks.\nTurn right.\nGo straight three blocks.\nIt's on your left.\nIt's next to the pine tree." },
+  { ex:2, title:'푸른 보석의 행방', level:2, size:7, icon:'t_gem', start:{r: 6, c: 5, d: 0}, treasure:{r: 2, c: 2},
     layout:[{r: 3, c: 2, b: "park"}, {r: 5, c: 1, b: "rock"}, {r: 1, c: 2, b: "fire"}, {r: 3, c: 1, b: "playground"}, {r: 1, c: 4, b: "mailbox"}, {r: 6, c: 1, b: "store"}, {r: 3, c: 0, b: "cafe"}, {r: 5, c: 6, b: "bench"}, {r: 2, c: 1, b: "bush"}, {r: 4, c: 1, b: "school"}, {r: 0, c: 1, b: "bank"}, {r: 0, c: 6, b: "house"}, {r: 2, c: 0, b: "tree2"}, {r: 4, c: 6, b: "museum"}, {r: 5, c: 3, b: "hospital"}],
     directions:"Go straight two blocks.\nTurn left at the museum.\nGo straight two blocks.\nTurn right at the hospital.\nGo straight two blocks.\nIt's on your left." },
-  { ex:2, title:'세 번 꺾는 골목', level:3, size:7, icon:'t_chest', start:{r: 4, c: 0, d: 1}, treasure:{r: 4, c: 3},
+  { ex:3, title:'해적 선장의 낡은 지도', level:1, size:7, icon:'t_map', start:{r:1,c:0,d:1}, treasure:{r:1,c:5},
+    layout:[{r:3,c:1,b:'fence'},{r:5,c:4,b:'flowerbed'},{r:3,c:0,b:'supermarket'},{r:6,c:0,b:'bookstore'},{r:6,c:5,b:'lamp'},{r:4,c:4,b:'zoo'},{r:0,c:0,b:'tree3'},{r:3,c:3,b:'park'},{r:6,c:2,b:'library'},{r:6,c:6,b:'toy'},{r:2,c:1,b:'school'},{r:2,c:2,b:'mailbox'},{r:4,c:3,b:'store'}],
+    directions:"Go straight three blocks.\nTurn right.\nGo straight one block.\nTurn left.\nGo straight two blocks.\nIt's on your left." },
+  { ex:4, title:'비밀 상자를 찾아라', level:1, size:7, icon:'t_chest', start:{r:6,c:2,d:0}, treasure:{r:6,c:6},
+    layout:[{r:4,c:0,b:'zoo'},{r:4,c:6,b:'crosswalk'},{r:0,c:2,b:'tree2'},{r:3,c:5,b:'fountain'},{r:2,c:0,b:'fire'},{r:5,c:3,b:'bush'},{r:1,c:5,b:'playground'},{r:0,c:0,b:'park'},{r:0,c:4,b:'bank'},{r:2,c:2,b:'hospital'},{r:4,c:1,b:'police'},{r:3,c:4,b:'toy'}],
+    directions:"Go straight two blocks.\nTurn right at the police station.\nGo straight two blocks.\nTurn right at the toy store.\nGo straight one block.\nTurn left at the bush.\nGo straight two blocks.\nIt's on your right." },
+  { ex:5, title:'미로 마을의 황금 상자', level:3, size:7, icon:'t_chest', start:{r: 4, c: 0, d: 1}, treasure:{r: 4, c: 3},
     layout:[{r: 0, c: 5, b: "trafficlight"}, {r: 4, c: 5, b: "construction"}, {r: 3, c: 4, b: "cafe"}, {r: 4, c: 2, b: "bank"}, {r: 5, c: 3, b: "flowerbed"}, {r: 2, c: 2, b: "supermarket"}, {r: 3, c: 1, b: "mailbox"}, {r: 3, c: 2, b: "restaurant"}, {r: 2, c: 1, b: "toy"}, {r: 5, c: 0, b: "bush"}, {r: 3, c: 6, b: "pond"}, {r: 3, c: 3, b: "bookstore"}, {r: 3, c: 0, b: "rock"}, {r: 3, c: 5, b: "tree3"}],
     directions:"Go straight one block.\nTurn right.\nGo straight two blocks.\nTurn left.\nGo straight three blocks.\nTurn left.\nGo straight two blocks.\nIt's on your left." },
-  { ex:3, title:'네 번 꺾는 왕관 길', level:3, size:7, icon:'t_crown', start:{r: 1, c: 0, d: 1}, treasure:{r: 5, c: 0},
+  { ex:6, title:'전설의 왕관을 찾아서', level:3, size:7, icon:'t_crown', start:{r: 1, c: 0, d: 1}, treasure:{r: 5, c: 0},
     layout:[{r: 1, c: 4, b: "museum"}, {r: 0, c: 2, b: "flowerbed"}, {r: 2, c: 0, b: "tree2"}, {r: 5, c: 4, b: "fire"}, {r: 0, c: 4, b: "school"}, {r: 1, c: 3, b: "house"}, {r: 6, c: 4, b: "rock"}, {r: 0, c: 5, b: "store"}, {r: 4, c: 0, b: "bank"}, {r: 1, c: 5, b: "pond"}, {r: 0, c: 0, b: "playground"}, {r: 5, c: 6, b: "tree1"}, {r: 1, c: 6, b: "bench"}],
     directions:"Go straight two blocks.\nTurn right.\nGo straight two blocks.\nTurn left.\nGo straight one block.\nTurn right.\nGo straight three blocks.\nTurn right.\nGo straight three blocks.\nIt's on your right." }
 ];
-const PRACTICE_META = ['두 번 도는 길 · 장소에서 돌아요', '세 번 도는 길 · 장소 힌트가 없어요', '네 번 도는 길 · 끝까지 따라가요'];
+let pubMineHTML = () => '';
+const PRACTICE_META = ['한 번 도는 길 · next to 힌트', '두 번 도는 길 · 장소에서 돌아요', '두 번 도는 길 · 장소 힌트가 없어요', '세 번 도는 길 · 장소에서 돌아요', '세 번 도는 길 · 장소 힌트가 없어요', '네 번 도는 길 · 끝까지 따라가요'];
 const BLOCK_WORDS = ['시발','씨발','ㅅㅂ','ㅆㅂ','병신','ㅂㅅ','개새','존나','좆','fuck','shit','bitch'];
 
 const $ = s => document.querySelector(s);
@@ -1179,7 +1194,8 @@ document.addEventListener('visibilitychange', () => { if(document.visibilityStat
 function saveProfile(p){ S.profile = p; lsSet('tq_profile_v9', p); renderMe(); }
 function renderMe(){
   const p = S.profile;
-  $('#meChip').innerHTML = !p ? '' : PUBLIC ? `<button class="me" data-act="toProfile" title="내 이름·캐릭터 바꾸기"><img src="${ICON[p.avatar]}" alt="">${esc(p.nick||'내 이름')}</button>`
+  const nMine = PUBLIC ? lsGet('tq_pub_mine', []).length : 0;
+  $('#meChip').innerHTML = !p ? '' : PUBLIC ? `<span class="mebox"><button class="me" data-act="toProfile" title="내 이름·캐릭터 바꾸기"><img src="${ICON[p.avatar]}" alt="">${esc(p.nick||'내 이름')} <span class="pen" aria-hidden="true">✏️</span></button>${nMine ? `<button class="mymapsbtn" data-act="myMaps">📌 내가 만든 지도 ${nMine}개</button>` : ''}</span>`
     : `<button class="me" data-act="toProfile" title="내 정보 바꾸기"><img src="${ICON[p.avatar]}" alt="">${esc(p.label||'')} · ${esc(p.seat)}번</button>`;
 }
 
@@ -1309,7 +1325,16 @@ function padAct(a){
 function setPadMsg(t, bad){ const m = $('#padMsg'); if(m){ m.textContent = t; m.classList.toggle('bad', !!bad); } }
 
 /* ================= views ================= */
-function go(view){ S.view = view; render(); window.scrollTo({top:0}); }
+function go(view){ S.view = view; minePop(false); render(); window.scrollTo({top:0}); }
+/* 📌 내가 만든 지도: 이름 아래 버튼을 누르면 어느 화면에서든 펼쳐져요 (공유판) */
+function minePop(open){
+  const old = $('#minePop'); if(old) old.remove();
+  if(!open) return;
+  const el = document.createElement('div'); el.id = 'minePop'; el.className = 'minepop';
+  el.innerHTML = `<div class="row between"><b>📌 내가 만든 지도</b><button class="btn small" data-act="myMapsClose">닫기 ✕</button></div>
+    <p class="hint" style="margin-top:2px">🔗 링크·QR 다시 보기 · 📋 이 지도로 하나 더 만들기 · 🗑 목록에서 지우기</p>${pubMineHTML()}`;
+  document.body.appendChild(el);
+}
 function render(){ renderMe(); ({home:vHome, profile:vProfile, create:vCreate, published:vPublished, lobby:vLobby, play:vPlay, teacher:vTeacher, listen:vListenHub, boardSetup:vBoardSetup, board:vBoard, showcase:vShowcase})[S.view](); }
 function needProfile(next){ if(S.profile) return false; S.after = next; go('profile'); return true; }
 
@@ -1323,10 +1348,15 @@ function vHome(){
   <div class="modes">
     <button class="mode" data-act="toListen"><img src="${ICON.t_chest}" alt="">
       <span><span class="en">LISTENING</span><h2>듣고 보물 찾기</h2><p>전자칠판으로 다 같이 듣고 활동지에 표시하거나, 혼자 듣고 찾아요</p></span></button>
+${PUBLIC ? `    <button class="mode" data-act="toLobby"><img src="${ICON.t_gem}" alt="">
+      <span><span class="en">${PUBLIC ? 'PRACTICE · READING' : 'PLAYER MODE'}</span><h2>${PUBLIC ? '연습 퀘스트 풀기' : '친구 퀘스트 풀기'}</h2><p>${PUBLIC ? '연습 보물 지도의 길 안내를 읽고 보물을 찾아요. 뒤로 갈수록 어려워요' : '우리 반 친구들의 지도를 골라 안내문을 읽고 보물을 찾아요'}</p></span></button>
     <button class="mode" data-act="toCreate"><img src="${ICON.t_map}" alt="">
       <span><span class="en">CREATOR MODE</span><h2>맵 만들기 & 퀘스트 발행</h2><p>지도 꾸미기 → 보물 숨기기 → 영어 길 안내 쓰기 → 걸어서 확인</p></span></button>
+` : `    <button class="mode" data-act="toCreate"><img src="${ICON.t_map}" alt="">
+      <span><span class="en">CREATOR MODE</span><h2>맵 만들기 & 퀘스트 발행</h2><p>지도 꾸미기 → 보물 숨기기 → 영어 길 안내 쓰기 → 걸어서 확인</p></span></button>
     <button class="mode" data-act="toLobby"><img src="${ICON.t_gem}" alt="">
-      <span><span class="en">PLAYER MODE</span><h2>친구 퀘스트 풀기</h2><p>${PUBLIC ? '(선택) 패들릿 등에 올라온 친구의 퀘스트 링크를 열어 보물을 찾아요' : '우리 반 친구들의 지도를 골라 안내문을 읽고 보물을 찾아요'}</p></span></button>
+      <span><span class="en">${PUBLIC ? 'PRACTICE · READING' : 'PLAYER MODE'}</span><h2>${PUBLIC ? '연습 퀘스트 풀기' : '친구 퀘스트 풀기'}</h2><p>${PUBLIC ? '연습 보물 지도의 길 안내를 읽고 보물을 찾아요. 뒤로 갈수록 어려워요' : '우리 반 친구들의 지도를 골라 안내문을 읽고 보물을 찾아요'}</p></span></button>
+`}
   </div>`;
 }
 
@@ -1718,7 +1748,7 @@ function vPlay(){
     <div class="side">
       <div class="who"><span style="font-family:var(--f-en);font-weight:600;color:var(--sky)">${q.gen?'👂':q.example?'연습 '+q.ex:'#'+q.num}</span><span class="qtitle">${esc(q.title)}</span>${(q.gen || q.is_mine) ? lvlTag(q.level) : ''}${bigTag(q)}${q.is_mine?'<span class="tag minetag">내 퀘스트</span>':''}</div>
       <div class="goal"><img src="${ICON[q.icon]}" alt=""><span>찾을 보물: <b style="font-family:var(--f-en)">${TREASURES[q.icon]}</b></span></div>
-      ${modeTabs(PL.listen)}
+      ${PUBLIC && q.ex ? '' : modeTabs(PL.listen)}
       ${PL.listen && !PL.solved && !PL.reveal ? listenBox(PL) : `<div class="row between"><h2>${PL.listen?'들은 안내문 확인하기':'길 안내문을 읽어요'}</h2><button class="btn small" data-act="speak">🔊 듣기</button></div>
       <div class="directions">${esc(q.directions)}</div>`}
       ${PL.msg ? `<div class="status bad shake">Oops! 길을 잃었어요. 안내문을 다시 ${PL.listen && !PL.reveal ? '들어' : '읽어'}보세요!</div>`
@@ -2384,7 +2414,7 @@ function openListen(level){
 function openExample(n){
   const x = EXAMPLES.find(e => e.ex===n); if(!x) return;
   S.player = { quest:{num:'ex'+x.ex, ex:x.ex, example:true, title:x.title, level:x.level, size:x.size, start:x.start, layout:x.layout, directions:x.directions, icon:x.icon, hearts:0},
-    exTreasure:x.treasure, pick:null, tries:0, msg:false, solved:false, busy:false, closed:false, helper:null, listen:S.lobby.mode==='listen', si:0, reveal:false };
+    exTreasure:x.treasure, pick:null, tries:0, msg:false, solved:false, busy:false, closed:false, helper:null, listen:!PUBLIC && S.lobby.mode==='listen', si:0, reveal:false };
   go('play');
 }
 /* 📋 이 지도로 하나 더 만들기: 지도·출발점·보물 위치를 그대로 가져와 새 퀘스트로 시작해요 (원래 퀘스트는 그대로) */
@@ -2464,7 +2494,7 @@ async function act(a){
   const C = S.creator, PL = S.player, T = S.teacher;
   switch(a){
     case 'home': go('home'); break;
-    case 'toProfile': S.ptmp = null; go('profile'); break;
+    case 'toProfile': S.ptmp = null; S.back = PUBLIC && S.profile && S.view!=='profile' ? S.view : null; go('profile'); break;
     case 'toListen': try{ speechSynthesis.cancel(); }catch(e){} go('listen'); break;
     case 'toListenSolo': openListen(); break;
     case 'toBoardSetup': try{ speechSynthesis.cancel(); }catch(e){} go('boardSetup'); break;
@@ -2486,6 +2516,8 @@ async function act(a){
     case 'bPrintWs': printSheet(false); break;
     case 'bPrintKey': printSheet(true); break;
     case 'genNext': openListen(); break;
+    case 'myMaps': minePop(!$('#minePop')); break;
+    case 'myMapsClose': minePop(false); break;
     case 'toCreate': {
       if(needProfile('create')) return;
       if(await mineFull()) return;
@@ -2551,6 +2583,7 @@ async function act(a){
       if(!nick){ $('#pErr').textContent = '내 이름을 써 주세요.'; $('#pNick').focus(); return; }
       if(hasBad(nick)){ $('#pErr').textContent = '친구가 기분 나쁠 수 있는 말은 쓸 수 없어요.'; return; }
       saveProfile({space:'PUB', id:'pub', seat:'', label:'', avatar:t.avatar, nick}); S.ptmp = null;
+      if(S.back && !S.after){ const v = S.back; S.back = null; toast('이름과 캐릭터를 바꿨어요.'); go(v); break; }
       const next = S.after || 'home'; S.after = null; if(next==='create') startCreator(); go(next); break;
     }
     case 'pubOpen': {
@@ -2841,7 +2874,7 @@ document.addEventListener('click', e => {
   if(d.pubopen!==undefined){ const x = pubMine()[+d.pubopen]; if(x) openShared(x.code); return; }
   if(d.pubdup!==undefined){ const x = pubMine()[+d.pubdup]; if(x) openShared(x.code, {dup:true}); return; }
   if(d.pubqr!==undefined){ const x = pubMine()[+d.pubqr]; if(x) (async () => { const q = await decodeQuest(x.code); if(q){ S.share = q; go('published'); } })(); return; }
-  if(d.pubdel!==undefined){ const l = pubMine(); l.splice(+d.pubdel, 1); lsSet(PUB_MINE, l); toast('목록에서 지웠어요. (보낸 링크는 그대로 열려요)'); return vLobby(); }
+  if(d.pubdel!==undefined){ const l = pubMine(); l.splice(+d.pubdel, 1); lsSet(PUB_MINE, l); toast('목록에서 지웠어요. (보낸 링크는 그대로 열려요)'); renderMe(); minePop(l.length > 0); return; }
   if(d.hmix){ const [l, dd] = d.hmix.split(':').map(Number), mx = S.hub.mix, tot = mx[0]+mx[1]+mx[2];
     if(dd>0 && tot>=8) return; mx[l-1] = Math.max(0, mx[l-1]+dd); return vBoardSetup(); }
   if(d.hpre){ S.hub.mix = d.hpre.split('').map(Number); return vBoardSetup(); }
@@ -3015,23 +3048,20 @@ if(PUBLIC){
     const nk = $('#pNick'); nk.addEventListener('input', () => { tmp.nick = nk.value; }); nk.addEventListener('keydown', e => { if(e.key==='Enter') act('pubSaveProfile'); });
   };
   vLobby = function(){
-    const L = S.lobby, mine = pubMine();
-    app.innerHTML = `<div class="card"><div class="row between"><h2>🔗 친구 퀘스트 열기 <span class="hint">(선택)</span></h2>${modeTabs(L.mode==='listen')}</div>
-        <p class="hint" style="margin-top:4px">패들릿 등에 올라온 친구의 <b>퀘스트 링크</b>를 누르거나, 여기에 붙여 넣어 열어요.</p>
-        <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input class="input" id="shareIn" placeholder="https://… #s=… 링크를 붙여 넣어요" autocomplete="off" style="flex:1;min-width:0"><button class="btn blue" data-act="pubOpen">열기</button></div>
-        <div class="err" id="shareErr"></div></div>
-      <h3 style="margin-top:18px">📌 내가 만든 지도 <span class="hint">· 이 기기에만 저장돼요</span></h3>
-      ${mine.length ? `<div class="qlist" style="margin-top:8px">${mine.map((x,i)=>`<div class="qcard pubmine">
+    app.innerHTML = `<h2 style="margin-top:8px">🧩 연습 퀘스트 <span class="hint">· 길 안내문을 읽고 보물을 찾아요 · 뒤로 갈수록 어려워요</span></h2>
+      <div class="qlist">${EXAMPLES.map(x=>`<div class="qcard practice-card"><button class="qopen" data-ex="${x.ex}" aria-label="연습 퀘스트 ${esc(x.title)} 열기"></button>
+          <img src="${ICON[x.icon]}" alt=""><span style="min-width:0"><span class="num">연습 ${x.ex}</span> <span class="tt">${esc(x.title)}</span>
+          <span class="meta">${PRACTICE_META[x.ex-1]||''}</span></span></div>`).join('')}</div>
+      <p class="hint" style="margin-top:14px">💡 친구의 퀘스트는 패들릿에 올라온 <b>링크를 누르면</b> 바로 열려요.</p>`;
+  };
+  pubMineHTML = function(){
+    const mine = pubMine(); if(!mine.length) return '';
+    return `${mine.length ? `<div class="qlist" style="margin-top:8px">${mine.map((x,i)=>`<div class="qcard pubmine">
           <button class="qopen" data-pubopen="${i}" aria-label="${esc(x.title)} 열기"></button>
           <img src="${ICON[x.icon]||ICON.t_chest}" alt=""><span style="min-width:0">${lvlTag(x.level)} ${x.size===9?bigTag({size:9}):''}<span class="tt">${esc(x.title)}</span>
           <span class="meta">${new Date(x.at).toLocaleDateString('ko-KR')}</span></span>
           <span class="pubbtns"><button class="btn small" data-pubqr="${i}">🔗 QR·링크</button><button class="btn small" data-pubdup="${i}">📋 하나 더</button><button class="btn small" data-pubdel="${i}" aria-label="목록에서 지우기">🗑</button></span></div>`).join('')}</div>`
-        : '<div class="empty" style="margin-top:8px">아직 만든 퀘스트가 없어요. 「맵 만들기」에서 첫 퀘스트를 만들어 보세요!</div>'}
-      <section class="practice"><div class="row between"><h3>🧩 연습 지도 <span class="hint">· 안내문을 읽고 보물을 찾아봐요</span></h3></div>
-        <div class="qlist">${EXAMPLES.map(x=>`<div class="qcard practice-card"><button class="qopen" data-ex="${x.ex}" aria-label="연습 지도 ${esc(x.title)} 열기"></button>
-          <img src="${ICON[x.icon]}" alt=""><span style="min-width:0"><span class="num">연습 ${x.ex}</span> <span class="tt">${esc(x.title)}</span>
-          <span class="meta">${PRACTICE_META[x.ex-1]}</span></span></div>`).join('')}</div></section>`;
-    const si = $('#shareIn'); si.addEventListener('keydown', e => { if(e.key==='Enter') act('pubOpen'); });
+        : '<div class="empty" style="margin-top:8px">아직 만든 지도가 없어요. 「맵 만들기」에서 첫 퀘스트를 만들어 보세요!</div>'}`;
   };
   vPublished = function(){
     const Q = S.share; if(!Q){ go('home'); return; }
