@@ -265,6 +265,15 @@ textarea.write:focus{border-color:var(--sky);outline:none}
 .minepop{position:fixed;top:96px;right:16px;width:min(380px,calc(100% - 32px));max-height:calc(100dvh - 120px);overflow:auto;z-index:15;background:var(--surface);border:2px solid var(--sky);border-radius:18px;padding:12px 14px;box-shadow:0 10px 30px rgba(28,51,64,.25)}
 .minepop .qlist{grid-template-columns:minmax(0,1fr)}
 .mymaps{border:2px dashed var(--line);border-radius:16px;padding:10px 14px;background:var(--surface)}.mymaps summary{cursor:pointer}.mymaps .qlist{grid-template-columns:minmax(0,1fr)}
+.speakmap .cell .lbl{display:block!important;font-size:clamp(.5rem,1.9cqi,.88rem);font-weight:700;white-space:normal;line-height:1.05;text-align:center;bottom:1px;padding:1px 3px;background:rgba(255,255,255,.95);max-width:112%;overflow:visible;text-overflow:clip;z-index:2}
+.speakmap .cell.lot .pic{width:78%;height:66%;margin-bottom:22%}
+.speakmap .cell.picked::after{content:"?"}
+.spktabs .tab{min-width:38px;padding:4px 8px;font-size:.85rem}
+.spkno{font-family:var(--f-en);font-size:1.15rem}
+.spkq{background:var(--accent-soft);border-radius:16px;padding:14px 18px}.spkq.empty{background:var(--surface-2);border:2px dashed var(--line)}
+.spkline{font-family:var(--f-en);font-size:1.45rem;line-height:1.35}.spkline b{color:var(--pink)}
+.spkframe{border:2px dashed var(--line);border-radius:14px;padding:10px 14px;font-family:var(--f-en);font-size:.98rem;line-height:1.6}
+.spkframe u{text-decoration:none;color:var(--muted)}
 .startbox{border:2px solid #e0245e;border-radius:16px;padding:12px 14px;background:#fff0f4;display:flex;flex-direction:column;gap:4px}
 .startbox .sub{color:#c01c50;margin-bottom:2px;font-size:1.08rem}.startbox .stnow{font-size:.9rem}
 .maptip{background:#e0245e;color:#fff;border-radius:12px;padding:7px 12px;font-size:.95rem;text-align:center}
@@ -1326,10 +1335,10 @@ function padHTML(where){
       <button class="pb" data-pad="reset"><i>↺</i>처음<small>START</small></button>
     </div><p class="padmsg" id="padMsg"></p></div>`;
 }
-function padState(){ return S.view==='create' ? S.creator : S.player; }
-function padSize(){ return S.view==='create' ? S.creator.size : S.player.quest.size; }
-function padLayout(){ return S.view==='create' ? S.creator.layout : arr2obj(S.player.quest.layout); }
-function padStartObj(){ return S.view==='create' ? S.creator.start : (S.player.quest.start || qStart(S.player.quest.layout)); }
+function padState(){ return S.view==='create' ? S.creator : S.view==='speak' ? S.spk : S.player; }
+function padSize(){ return S.view==='create' ? S.creator.size : S.view==='speak' ? SIZE : S.player.quest.size; }
+function padLayout(){ return S.view==='create' ? S.creator.layout : S.view==='speak' ? spkMap().layout : arr2obj(S.player.quest.layout); }
+function padStartObj(){ return S.view==='create' ? S.creator.start : S.view==='speak' ? spkMap().start : (S.player.quest.start || qStart(S.player.quest.layout)); }
 function padStart(){ const st = startOf(padSize(), padStartObj()); return {r:st.r, c:st.c, dir:st.d, si:-1}; }
 function padAct(a){
   const o = padState(); if(!o || o.walking) return;
@@ -1359,7 +1368,7 @@ function minePop(open){
     <p class="hint" style="margin-top:2px">🔗 링크·QR 다시 보기 · 📋 이 지도로 하나 더 만들기 · 🗑 목록에서 지우기</p>${pubMineHTML()}`;
   document.body.appendChild(el);
 }
-function render(){ renderMe(); ({home:vHome, profile:vProfile, create:vCreate, published:vPublished, lobby:vLobby, play:vPlay, teacher:vTeacher, listen:vListenHub, boardSetup:vBoardSetup, board:vBoard, showcase:vShowcase})[S.view](); }
+function render(){ renderMe(); ({home:vHome, profile:vProfile, create:vCreate, published:vPublished, lobby:vLobby, play:vPlay, teacher:vTeacher, listen:vListenHub, speak:vSpeak, boardSetup:vBoardSetup, board:vBoard, showcase:vShowcase})[S.view](); }
 function needProfile(next){ if(S.profile) return false; S.after = next; go('profile'); return true; }
 
 function vHome(){
@@ -1372,6 +1381,8 @@ function vHome(){
   <div class="modes">
     <button class="mode" data-act="toListen"><img src="${ICON.t_chest}" alt="">
       <span><span class="en">LISTENING</span><h2>듣고 보물 찾기</h2><p>전자칠판으로 다 같이 듣고 활동지에 표시하거나, 혼자 듣고 찾아요</p></span></button>
+    <button class="mode" data-act="toSpeak"><img src="${ICON.trafficlight}" alt="">
+      <span><span class="en">SPEAKING</span><h2>길 묻고 답하기</h2><p>짝과 "Where is the ___?"를 묻고 답해요. 캐릭터를 움직여 확인해요</p></span></button>
 ${PUBLIC ? `    <button class="mode" data-act="toLobby"><img src="${ICON.t_gem}" alt="">
       <span><span class="en">${PUBLIC ? 'PRACTICE · READING' : 'PLAYER MODE'}</span><h2>${PUBLIC ? '연습 퀘스트 풀기' : '친구 퀘스트 풀기'}</h2><p>${PUBLIC ? '연습 보물 지도의 길 안내를 읽고 보물을 찾아요. 뒤로 갈수록 어려워요' : '우리 반 친구들의 지도를 골라 안내문을 읽고 보물을 찾아요'}</p></span></button>
     <button class="mode" data-act="toCreate"><img src="${ICON.t_map}" alt="">
@@ -2234,6 +2245,94 @@ function makeSet(code){
   return {code:c, mix, count:total, items, i:0, reveal:{}, si:0};
 }
 const mixText = mix => [1,2,3].filter(l => mix[l-1]).map(l => `${LV[l].star} ${LV[l].name} ${mix[l-1]}`).join(' · ');
+/* ===== 🗣 Speaking: 길 묻고 답하기 =====
+   보물 없는 연습 지도 20개 (지도마다 출발점이 달라요). 짝과 "Where is the ___?"를 묻고 답해요.
+   목적지를 누르거나 뽑고, 방향 도우미로 캐릭터를 움직여 확인해요. */
+const SPEAK_N = 20, SPEAK_B = Object.keys(PLACES).filter(x => PLACES[x].g==='b'), SPEAK_X = ['tree2','tree3','fountain','pond','mailbox','trafficlight'];
+let SPEAK_MAPS = null;
+function speakMaps(){
+  if(SPEAK_MAPS) return SPEAK_MAPS;
+  SPEAK_MAPS = [];
+  const n = SIZE;
+  for(let i=0; SPEAK_MAPS.length<SPEAK_N && i<5000; i++){
+    const rng = seedRng('SPEAK-' + i), rnd = m => Math.floor(rng()*m);
+    const side = SPEAK_MAPS.length % 4, j = 1 + rnd(n-2);      // 아래·왼쪽·위·오른쪽 가장자리를 돌아가며 출발
+    const p = side===0 ? [n-1, j] : side===1 ? [j, 0] : side===2 ? [0, j] : [j, n-1];
+    if(SPEAK_MAPS.some(x => x.start.r===p[0] && x.start.c===p[1])) continue;   // 출발점이 모두 달라요
+    const start = {r:p[0], c:p[1], d:faceCenter(n, p[0], p[1])}, ahead = [p[0]+D[start.d][0], p[1]+D[start.d][1]];
+    const keys = [...SPEAK_B].sort(() => rng()-.5).slice(0, 10 + rnd(2)).concat([...SPEAK_X].sort(() => rng()-.5).slice(0, 1 + rnd(2)));
+    const layout = {}; let guard = 0;
+    for(const key of keys){
+      while(guard++ < 500){ const r = rnd(n), c = rnd(n);
+        if((r===p[0] && c===p[1]) || (r===ahead[0] && c===ahead[1]) || layout[k(r,c)]) continue;
+        layout[k(r,c)] = key; break; }
+    }
+    // 모든 길이 이어지고, 모든 장소가 길에 닿아야 해요
+    const seen = new Set([k(p[0],p[1])]), stack = [p];
+    while(stack.length){ const [r,c] = stack.pop(); for(const d of D){ const q = [r+d[0], c+d[1]]; if(inMap(q,n) && !layout[k(q[0],q[1])] && !seen.has(k(q[0],q[1]))){ seen.add(k(q[0],q[1])); stack.push(q); } } }
+    const roads = n*n - Object.keys(layout).length;
+    if(seen.size !== roads) continue;
+    if(Object.keys(layout).some(kk => { const [r,c] = kk.split('-').map(Number); return !D.some(d => seen.has(k(r+d[0], c+d[1]))); })) continue;
+    SPEAK_MAPS.push({no:SPEAK_MAPS.length+1, start, layout});
+  }
+  return SPEAK_MAPS;
+}
+function spkMap(){ return speakMaps()[(S.spk && S.spk.i) || 0]; }
+function spkRoute(m, t){            // 목적지까지 가는 예시 답
+  const R = bestRoute(SIZE, m.layout, t, m.start); if(!R) return null;
+  const st = startOf(SIZE, m.start), out = []; let r = st.r, c = st.c, d = st.d, run = 0;
+  const flush = () => { if(run){ out.push(`Go straight ${NUMS[run]} block${run>1?'s':''}.`); run = 0; } };
+  for(const a of R.acts){
+    if(a==='F'){ r += D[d][0]; c += D[d][1]; run++; continue; }
+    flush();
+    const near = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(q => inMap(q,SIZE)).map(q => m.layout[k(q[0],q[1])]).filter(x => x && !(x===m.layout[k(t.r,t.c)]));
+    out.push(`Turn ${a==='L'?'left':'right'}${near.length ? ' at the ' + pn(near[0]) : ''}.`);
+    d = a==='L' ? (d+3)%4 : (d+1)%4;
+  }
+  flush();
+  out.push(R.end==='front' ? "It's in front of you." : `It's on your ${R.end}.`);
+  return {acts:R.acts, text:out.map(cap1).join(' ')};
+}
+function vSpeak(){
+  const P = S.spk = S.spk || {i:0, target:null, show:false, helper:null, walking:false};
+  const maps = speakMaps(), m = maps[P.i], t = P.target, tb = t && m.layout[k(t.r,t.c)];
+  const ans = t && P.show ? spkRoute(m, t) : null;
+  app.innerHTML = `<div class="row between" style="margin-top:8px"><h2>🗣 Speaking <span class="hint">· 짝과 길을 묻고 답해요 · 지도마다 출발점이 달라요</span></h2>
+      <div class="row" style="gap:6px"><button class="btn small" data-act="spkPrev" ${P.i?'':'disabled'}>◀</button><b class="spkno">Map ${m.no} <span class="hint">/ ${maps.length}</span></b><button class="btn small" data-act="spkNext" ${P.i<maps.length-1?'':'disabled'}>▶</button></div></div>
+    <div class="tabs spktabs" style="margin:6px 0 10px">${maps.map((x,i)=>`<button class="tab ${i===P.i?'sel':''}" data-spk="${i}">${x.no}</button>`).join('')}</div>
+    <div class="work">
+      <div class="mapcol speakmap">${mapHTML({size:SIZE, start:m.start, layout:m.layout, pick:t, clickable:true, avatar:curAvatar()})}${padHTML()}</div>
+      <div class="side">
+        <div class="spkq ${t?'':'empty'}">${t
+          ? `<p class="hint">A 묻기</p><p class="spkline">Excuse me. Where is the <b>${esc(PLACES[tb].en)}</b>? <button class="btn small" data-act="spkSay">🔊</button></p><p class="hint" style="margin-top:2px">${esc(PLACES[tb].ko)}</p>`
+          : '<p class="spkline" style="font-size:1.1rem">지도에서 <b>건물을 누르거나</b> 🎲 목적지 뽑기를 눌러요.</p>'}</div>
+        <div class="row"><button class="btn primary" data-act="spkPick">🎲 목적지 뽑기</button>${t?`<button class="btn" data-act="spkShow">${P.show?'예시 답 숨기기':'👀 예시 답 보기'}</button>`:''}${ans?'<button class="btn blue" data-act="spkWalk">🚶 걸어서 보기</button>':''}</div>
+        ${ans ? `<div class="directions">${esc(ans.text)}</div>` : ''}
+        <div class="spkframe"><p class="hint">B 답하기 · 표현</p>
+          <p>Go straight <u>one</u> block. / Go straight <u>two</u> blocks.</p>
+          <p>Turn left / right. &nbsp;·&nbsp; Turn left / right at the <u>___</u>.</p>
+          <p>It's on your left / right. &nbsp;·&nbsp; It's in front of you.</p>
+          <p>It's next to the <u>___</u>. &nbsp;·&nbsp; It's between the <u>___</u> and the <u>___</u>.</p></div>
+        <p class="hint">💡 짝과 A·B를 바꿔 가며 해요. 답한 대로 방향 도우미로 캐릭터를 움직여 맞는지 확인해요.</p>
+        <div class="row"><button class="btn" data-act="home">← 처음으로</button></div>
+      </div></div>`;
+  P.walkId = (P.walkId||0) + 1; P.walking = false; P.helper = null; padAct('reset');
+}
+async function spkWalk(){
+  const P = S.spk, m = spkMap(), ans = P.target && spkRoute(m, P.target); if(!ans || P.walking) return;
+  const id = P.walkId = (P.walkId||0) + 1, alive = () => S.view==='speak' && S.spk===P && P.walkId===id;
+  P.walking = true; P.helper = padStart(); placeWalker(P.helper, {instant:true});
+  for(const a of ans.acts){
+    await sleep(REDUCED ? 60 : 480);
+    if(!alive()) return;
+    const h = P.helper;
+    if(a==='F'){ h.r += D[h.dir][0]; h.c += D[h.dir][1]; sfx.step(); }
+    else { h.dir = a==='L' ? (h.dir+3)%4 : (h.dir+1)%4; sfx.turn(); }
+    placeWalker(h);
+  }
+  await sleep(300); if(!alive()) return; sfx.arrive(); setPadMsg('도착! ' + PLACES[m.layout[k(P.target.r,P.target.c)]].en + '이(가) 보여요.');
+  P.walking = false;
+}
 /* 듣고 보물 찾기: 먼저 방식 고르기 */
 function vListenHub(){
   app.innerHTML = `<h2 style="margin-top:8px">👂 듣고 보물 찾기 <span class="hint">· 어떻게 할까요?</span></h2>
@@ -2520,6 +2619,17 @@ async function act(a){
     case 'home': go('home'); break;
     case 'toProfile': S.ptmp = null; S.back = PUBLIC && S.profile && S.view!=='profile' ? S.view : null; go('profile'); break;
     case 'toListen': try{ speechSynthesis.cancel(); }catch(e){} go('listen'); break;
+    case 'toSpeak': go('speak'); break;
+    case 'spkPrev': if(S.spk.i > 0){ S.spk.i--; S.spk.target = null; S.spk.show = false; vSpeak(); } break;
+    case 'spkNext': if(S.spk.i < SPEAK_N-1){ S.spk.i++; S.spk.target = null; S.spk.show = false; vSpeak(); } break;
+    case 'spkPick': {
+      const m = spkMap(), cand = Object.keys(m.layout).filter(kk => PLACES[m.layout[kk]].g==='b').map(kk => { const [r,c] = kk.split('-').map(Number); return {r,c}; })
+        .filter(t => { const a = spkRoute(m, t); return a && a.acts.filter(x => x==='F').length >= 2 && !(S.spk.target && S.spk.target.r===t.r && S.spk.target.c===t.c); });
+      if(!cand.length) break;
+      S.spk.target = cand[Math.floor(Math.random()*cand.length)]; S.spk.show = false; sfx.turn(); vSpeak(); break; }
+    case 'spkShow': S.spk.show = !S.spk.show; vSpeak(); break;
+    case 'spkWalk': spkWalk(); break;
+    case 'spkSay': { const t = S.spk.target, m = spkMap(); if(t) speakText(`Excuse me. Where is the ${PLACES[m.layout[k(t.r,t.c)]].en.toLowerCase()}?`); break; }
     case 'toListenSolo': openListen(); break;
     case 'toBoardSetup': try{ speechSynthesis.cancel(); }catch(e){} go('boardSetup'); break;
     case 'hubNew': { const H = S.hub; let B = null; for(let i=0;i<5 && !B;i++) B = makeSet(randCode(4) + H.mix.join(''));
@@ -2843,6 +2953,11 @@ async function act(a){
 }
 
 function cellClick(r,c){
+  if(S.view==='speak'){
+    const P = S.spk, m = spkMap(), b = m.layout[k(r,c)];
+    if(!b || P.walking) return;
+    P.target = (P.target && P.target.r===r && P.target.c===c) ? null : {r,c}; P.show = false; sfx.step(); vSpeak(); return;
+  }
   if(S.view==='board'){
     const B = S.board, it = B.items[B.i]; if(B.reveal[B.i]) return;
     const st = startOf(it.size, it.start); if(r===st.r && c===st.c) return;
@@ -2889,7 +3004,7 @@ async function copy(text){
 }
 
 document.addEventListener('click', e => {
-  const el = e.target.closest('[data-act],[data-r],[data-pal],[data-open],[data-ex],[data-tseat],[data-tname],[data-tpin],[data-trmok],[data-tclass],[data-treset],[data-copy],[data-lvl],[data-sort],[data-edit],[data-tedit],[data-icon],[data-group],[data-av],[data-filter],[data-ttab],[data-topen],[data-tconfirm],[data-tdel],[data-pad],[data-pmode],[data-glvl],[data-pubopen],[data-pubqr],[data-pubdup],[data-pubdel],[data-dup],[data-hmix],[data-hpre],[data-bi]');
+  const el = e.target.closest('[data-act],[data-r],[data-pal],[data-open],[data-ex],[data-tseat],[data-tname],[data-tpin],[data-trmok],[data-tclass],[data-treset],[data-copy],[data-lvl],[data-sort],[data-edit],[data-tedit],[data-icon],[data-group],[data-av],[data-filter],[data-ttab],[data-topen],[data-tconfirm],[data-tdel],[data-pad],[data-pmode],[data-glvl],[data-pubopen],[data-pubqr],[data-pubdup],[data-pubdel],[data-dup],[data-hmix],[data-hpre],[data-bi],[data-spk]');
   if(!el || el.disabled) return;
   const d = el.dataset, C = S.creator, T = S.teacher;
   if(d.act) return act(d.act);
@@ -2910,6 +3025,7 @@ document.addEventListener('click', e => {
     return;
   }
   if(d.pad) return padAct(d.pad);
+  if(d.spk!==undefined){ S.spk.i = +d.spk; S.spk.target = null; S.spk.show = false; return vSpeak(); }
   if(d.r !== undefined) return cellClick(+d.r, +d.c);
   if(d.pal){ C.sel = d.pal; return vCreate(); }
   if(d.group){ C.group = d.group; if(!PLACES[C.sel] || PLACES[C.sel].g!==d.group) C.sel = Object.keys(PLACES).find(x=>PLACES[x].g===d.group); return vCreate(); }
