@@ -654,6 +654,24 @@ function typosIn(sentence){
     const a = words[i].replace(/'+$/,''), b = words[i+1].replace(/^'+|'+$/g,'');
     if(PLACE_JOIN.has(a+b) && !PLACE_SPACED.has(a+' '+b)){ out.push({word:a+' '+b, fix:a+b}); skip.add(i); skip.add(i+1); }
   }
+  // 두 낱말 장소의 앞 낱말을 틀린 경우: convine store → convenience store, fier station → fire station
+  for(let i=0;i<words.length-1;i++){
+    if(skip.has(i)) continue;
+    const a = words[i].replace(/^'+|'+$/g,''), b = words[i+1].replace(/^'+|'+$/g,'');
+    if(a.length < 2 || VOCAB.has(a)) continue;
+    let best = null, bd = 99;
+    for(const nm of PLACE_SPACED){ const [x, y] = nm.split(' '); if(y!==b || x===a) continue; const dd = editDist(a, x); if(dd < bd){ bd = dd; best = x; } }
+    if(best && bd <= Math.max(2, Math.ceil(best.length*0.6))){ out.push({word:words[i], fix:best}); skip.add(i); }
+  }
+  // 두 낱말 장소의 뒤 낱말을 틀린 경우: traffic lite → traffic light, convenience stor → convenience store
+  for(let i=0;i<words.length-1;i++){
+    if(skip.has(i+1)) continue;
+    const a = words[i].replace(/^'+|'+$/g,''), b = words[i+1].replace(/^'+|'+$/g,'');
+    if(b.length < 2 || VOCAB.has(b) && !/^(lite|stor|statoin)$/.test(b)) continue;
+    let best = null, bd = 99;
+    for(const nm of PLACE_SPACED){ const [x, y] = nm.split(' '); if(x!==a || y===b) continue; const dd = editDist(b, y); if(dd < bd){ bd = dd; best = y; } }
+    if(best && bd <= Math.max(2, Math.ceil(best.length*0.6))){ out.push({word:words[i+1], fix:best}); skip.add(i+1); }
+  }
   // It's 를 It' / Its / It s 로 쓴 경우
   let cm; const reIts = /\b(its)\s+(?=on\b|in\b|next\b|between\b|straight\b|at\b|near\b|here\b|there\b)/g;
   while((cm = reIts.exec(low))){ const orig = sentence.substr(cm.index, 3); out.push({word:orig, fix:orig[0]+"t's", grammar:true}); }
@@ -673,7 +691,13 @@ function typosIn(sentence){
     let best = null, bd = 9;
     for(const t of targets){ if(Math.abs(t.length-w.length) > 2) continue; const dd = editDist(w,t); if(dd < bd){ bd = dd; best = t; } }
     const limit = w.length >= 6 ? 2 : 1;
-    if(best && bd <= limit) out.push({word:raw, fix:best});
+    if(best && bd <= limit){ out.push({word:raw, fix:best}); continue; }
+    // 길이가 많이 다른 장소 낱말 (convine → convenience): 앞 세 글자가 같고 절반 가까이 맞으면 알려 줘요
+    if(w.length >= 5){
+      let b2 = null, d2 = 99;
+      for(const t of PLACE_WORDS){ if(t.length < 5 || t.slice(0,3)!==w.slice(0,3)) continue; const dd = editDist(w,t); if(dd < d2){ d2 = dd; b2 = t; } }
+      if(b2 && d2 <= Math.ceil(b2.length*0.45)) out.push({word:raw, fix:b2});
+    }
   }
   // 단수·복수: one block / two blocks (one blocks ✗, 3 block ✗)
   const NUMV = {a:1, an:1, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8};
@@ -2107,13 +2131,13 @@ function accountHTML(){
 /* ================= actions ================= */
 
 /* ===== 👂 듣기 연습: 지도와 길 안내문을 자동으로 만들어요 (이해 단계 · 기록 없음) =====
-   1 기본: 0~1번 돌기 · 2 보통: 1~2번 돌기 + next to · 3 도전: 2~3번 돌기 + Turn ~ at the ___ + between */
+   (쓰기 단계와 별개) */
 const NUMS = ['zero','one','two','three','four','five','six','seven','eight'];
 const cap1 = t => t.charAt(0).toUpperCase() + t.slice(1);
 /* 듣기 난이도는 '단서가 적을수록, 길이 길수록' 어려워요 (쓰기와 반대: between 같은 결정적 힌트는 쓰지 않아요)
-   1 기본: 아래 가운데 START ▲ · 0~1번 돌기 · 짧은 길 · 마지막에 It's next to the ___ 확인 힌트
-   2 보통: 아래쪽 줄 어디서든 START ▲ · 1~2번 돌기 · 도는 곳의 장소(Turn right at the ___)만 힌트
-   3 도전: 가장자리 아무 곳 (지도 가운데 쪽을 보고) · 2~3번 돌기 · 장소 힌트 없이 방향과 블록 수만 */
+   1 기본: 아래 가운데 START ▲ · 1번 돌기 · 짧은 길 · 마지막에 It's next to the ___ 확인 힌트
+   2 보통: 아래쪽 줄 어디서든 START ▲ · 2번 돌기 · 도는 곳의 장소(Turn right at the ___)만 힌트
+   3 도전: 가장자리 아무 곳 (지도 가운데 쪽을 보고) · 3~4번 돌기 · 장소 힌트 없이 방향과 블록 수만 */
 /* 듣기 문제 만들기: 길을 먼저 그리고(정해진 횟수만큼 돌기), 그 둘레에 건물을 놓아요.
    기본: 1번 돌기 + next to · 보통: 2번 돌기 + Turn ~ at the ___ · 도전: 3번 돌기, 가장자리 출발, 장소 힌트 없음 */
 const LISTEN_RULE = {1:{turns:[1,1], steps:[4,7], seg:[1,4]}, 2:{turns:[2,2], steps:[6,9], seg:[1,3]}, 3:{turns:[3,4], steps:[8,12], seg:[1,3]}};
@@ -2231,7 +2255,7 @@ function vBoardSetup(){
       <div class="mixrows">${[1,2,3].map(l=>`<div class="mixrow"><span class="lvn">${LV[l].star} ${LV[l].name}</span>
         <button class="btn small" data-hmix="${l}:-1" aria-label="${LV[l].name} 줄이기" ${H.mix[l-1]?'':'disabled'}>−</button><b class="mixn">${H.mix[l-1]}</b>
         <button class="btn small" data-hmix="${l}:1" aria-label="${LV[l].name} 늘리기" ${total<8?'':'disabled'}>＋</button>
-        <span class="hint">${['','아래 가운데에서 출발 · 0~1번 돌기 · next to 힌트','출발 칸이 바뀜 · 1~2번 돌기 · Turn ~ at the ___ 힌트','가장자리 어디서든 출발 · 2~3번 돌기 · 장소 힌트 없음'][l]}</span></div>`).join('')}</div>
+        <span class="hint">${['','아래 가운데에서 출발 · 1번 돌기 · next to 힌트','아래쪽 줄에서 출발 · 2번 돌기 · Turn ~ at the ___ 힌트','가장자리 어디서든 출발 · 3~4번 돌기 · 장소 힌트 없음'][l]}</span></div>`).join('')}</div>
       <div class="tabs" style="margin-top:8px"><span class="hint" style="align-self:center">빠르게 고르기</span>${[[[1,2,1],'섞어서 1·2·1'],[[4,0,0],'기본 4'],[[0,4,0],'보통 4'],[[0,0,4],'도전 4'],[[2,2,2],'2·2·2']].map(([mx,l])=>`<button class="tab ${H.mix.join()===mx.join()?'sel':''}" data-hpre="${mx.join('')}">${l}</button>`).join('')}</div>
       <p class="hint" style="margin-top:6px">모두 <b>${total}</b>문제 · 활동지 ${Math.ceil(total/4)||0}장</p>
       <div class="row" style="margin-top:14px"><button class="btn primary" data-act="hubNew" ${total?'':'disabled'}>새 문제 세트 만들기</button></div>
