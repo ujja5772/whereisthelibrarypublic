@@ -274,6 +274,9 @@ textarea.write:focus{border-color:var(--sky);outline:none}
 .spkline{font-family:var(--f-en);font-size:1.45rem;line-height:1.35}.spkline b{color:var(--pink)}
 .spkframe{border:2px dashed var(--line);border-radius:14px;padding:10px 14px;font-family:var(--f-en);font-size:.98rem;line-height:1.6}
 .spkframe u{text-decoration:none;color:var(--muted)}
+.alllock{margin-top:10px;padding:8px 12px;border-radius:12px;background:var(--surface-2);font-size:.92rem}.alllock .bar{height:8px;margin-top:5px}
+.allopen{margin-top:10px;padding:8px 12px;border-radius:12px;background:var(--ok-soft);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.allg{margin-top:16px;font-size:1.1rem}
 .startbox{border:2px solid #e0245e;border-radius:16px;padding:12px 14px;background:#fff0f4;display:flex;flex-direction:column;gap:4px}
 .startbox .sub{color:#c01c50;margin-bottom:2px;font-size:1.08rem}.startbox .stnow{font-size:.9rem}
 .maptip{background:#e0245e;color:#fff;border-radius:12px;padding:7px 12px;font-size:.95rem;text-align:center}
@@ -651,6 +654,9 @@ function editDist(a, b){            // 글자 바꿈·빠짐·더함·자리 바
   }
   return d[a.length][b.length];
 }
+const fixLookalike = t => String(t||'')
+  .replace(/\bl[tT](['’`]?\s?[sS])\b/g, "It's").replace(/\blt\b/g, 'It')      // lt's / lts / lt s → It's, lt → It (소문자 l을 대문자 I로 잘못 친 경우)
+  .replace(/(^|[.!?\n]\s*|\s)l(?=\s+[a-z])/g, '$1I');                         // l love → I love
 const CONTR = {it:"it's", that:"that's", there:"there's", let:"let's", what:"what's", here:"here's", don:"don't"};
 const PLACE_JOIN = new Set(NAMES.map(x => x.n).filter(x => !/\s/.test(x)));
 const PLACE_SPACED = new Set(NAMES.map(x => x.n).filter(x => /\s/.test(x)));
@@ -681,6 +687,9 @@ function typosIn(sentence){
     for(const nm of PLACE_SPACED){ const [x, y] = nm.split(' '); if(x!==a || y===b) continue; const dd = editDist(b, y); if(dd < bd){ bd = dd; best = y; } }
     if(best && bd <= Math.max(2, Math.ceil(best.length*0.6))){ out.push({word:words[i+1], fix:best}); skip.add(i+1); }
   }
+  // 대문자 I 대신 소문자 l: lt's → It's, l love → I love
+  { let lm; const reL = /\bl(t['’`]?\s?s|t)\b/g; while((lm = reL.exec(low))){ out.push({word:sentence.substr(lm.index, lm[0].length), fix:/s$/.test(lm[0]) ? "It's" : 'It'}); }
+    const reI = /(^|\s)l(?=\s+[a-z])/g; while((lm = reI.exec(sentence))){ out.push({word:'l', fix:'I'}); } }
   // It's 를 It' / Its / It s 로 쓴 경우
   let cm; const reIts = /\b(its)\s+(?=on\b|in\b|next\b|between\b|straight\b|at\b|near\b|here\b|there\b)/g;
   while((cm = reIts.exec(low))){ const orig = sentence.substr(cm.index, 3); out.push({word:orig, fix:orig[0]+"t's", grammar:true}); }
@@ -725,6 +734,7 @@ function checkDirections(text, n, layout, treasure, start){
   const st = startOf(n, start);
   let pos = [st.r, st.c], dir = st.d, turns = 0, moved = 0;
   const frames = [{r:pos[0], c:pos[1], dir, si:-1}];
+  text = fixLookalike(text);
   const sents = (text.match(/[^.!?\n]+[.!?]*/g) || []).map(s => s.trim()).filter(Boolean).map(t => ({t, acts:[], warn:[], bad:false}));
   let target = null, finalSi = -1, error = null;
   const stat = {turnAtUsed:0, turnAtOk:0, nextUsed:0, nextOk:0, betweenUsed:0, betweenOk:0, betweenBad:false, nextBad:false, placeIssues:[]};
@@ -963,7 +973,9 @@ const randCode = (n, abc=CODE_ABC) => Array.from({length:n}, () => abc[Math.floo
 const normCode = c => String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 const normSchool = s => String(s||'').replace(/\s/g,'').toLowerCase();
 const RETENTION_DAYS = 180;
+const ALL_NEED = 20;   // 🌏 전체 게시판: 우리 반 친구 퀘스트를 이만큼 찾으면 열려요 (반에 더 적으면 전부)
 const ERR = {
+  locked:'우리 반 친구 퀘스트를 더 찾으면 전체 게시판이 열려요.',
   session:'로그인이 끝났어요. 다시 로그인해 주세요.', login:'학교 이름이나 비밀번호가 맞지 않아요.', samepw:'같은 학교에 같은 비밀번호를 쓰는 선생님이 있어요. 다른 비밀번호를 써 주세요.',
   shortpw:'비밀번호는 6자 이상으로 써 주세요.', school:'학교 이름을 2~30자로 써 주세요.', join:'가입 코드가 맞지 않아요.', tries:'비밀번호를 여러 번 틀렸어요. 10분 뒤에 다시 해 주세요.',
   nospace:'반을 찾을 수 없어요. 반 코드를 확인해요.', many:'너무 많이 만들었어요. 잠시 뒤 다시 해 주세요.', seat:'번호는 1~99 사이 숫자로 써 주세요.',
@@ -1029,6 +1041,24 @@ const LocalStore = {
       treasure:p.treasure, icon:p.icon, directions:p.directions, revisions:p.revisions, listens:p.listens, solves:0, created_at:new Date().toISOString()});
     lsSet(LS_DB,d); return num; },
   async check(code, num, r, c0, pid){ const d = dbLoad(), c = normCode(code); playerOf(d, c, pid); const q = findQ(d, c, num); if(!q) return false;
+    const ok = q.treasure.r===r && q.treasure.c===c0; let p = d.plays.find(x => x.qid===q.id && x.player_id===pid);
+    if(!p){ p = {qid:q.id, player_id:pid, tries:0, solved:false}; d.plays.push(p); }
+    p.tries++; if(ok && !p.solved){ p.solved = true; q.solves = (q.solves||0)+1; } lsSet(LS_DB,d); return ok; },
+  _allStatus(d, c, pid){ const fr = d.quests.filter(q => q.space===c && q.player_id!==pid);
+    return {solved: fr.filter(q => d.plays.some(x => x.qid===q.id && x.player_id===pid && x.solved)).length, need: Math.max(1, Math.min(ALL_NEED, fr.length))}; },
+  _allQ(d, c, pid, qid){ playerOf(d, c, pid); const st = this._allStatus(d, c, pid); if(st.solved < st.need) throw new Error(ERR.locked);
+    const t = d.spaces[c].teacher_id, q = d.quests.find(x => x.id===qid && x.space!==c && d.spaces[x.space] && d.spaces[x.space].teacher_id===t);
+    if(!q) throw new Error('퀘스트를 찾을 수 없어요.'); return q; },
+  async allLobby(code, pid){ const d = dbLoad(), c = normCode(code); playerOf(d, c, pid); const st = this._allStatus(d, c, pid);
+    if(st.solved < st.need) return {open:false, ...st};
+    const t = d.spaces[c].teacher_id;
+    return {open:true, ...st, quests:d.quests.filter(q => q.space!==c && d.spaces[q.space] && d.spaces[q.space].teacher_id===t).slice().reverse()
+      .map(q => ({id:q.id, label:d.spaces[q.space].label, num:q.num, title:q.title, level:q.level||null, size:q.size, icon:q.icon, solves:q.solves||0,
+        solved:d.plays.some(x => x.qid===q.id && x.player_id===pid && x.solved)}))}; },
+  async allGetQuest(code, pid, qid){ const d = dbLoad(), c = normCode(code), q = this._allQ(d, c, pid, qid);
+    return {id:q.id, num:q.num, label:d.spaces[q.space].label, title:q.title, level:q.level||null, size:q.size, layout:q.layout, directions:q.directions, icon:q.icon,
+      egg:q.avatar==='quokka', solved_before:d.plays.some(x => x.qid===q.id && x.player_id===pid && x.solved)}; },
+  async allCheck(code, pid, qid, r, c0){ const d = dbLoad(), c = normCode(code), q = this._allQ(d, c, pid, qid);
     const ok = q.treasure.r===r && q.treasure.c===c0; let p = d.plays.find(x => x.qid===q.id && x.player_id===pid);
     if(!p){ p = {qid:q.id, player_id:pid, tries:0, solved:false}; d.plays.push(p); }
     p.tries++; if(ok && !p.solved){ p.solved = true; q.solves = (q.solves||0)+1; } lsSet(LS_DB,d); return ok; },
@@ -1103,6 +1133,7 @@ function makeSupaStore(){
     [/bad join/i, ERR.join], [/too many tries/i, ERR.tries], [/no space/i, ERR.nospace], [/too many mine/i, ERR.mine], [/too many/i, ERR.many], [/bad seat/i, ERR.seat],
     [/bad title/i, ERR.title], [/bad label/i, ERR.label], [/teacher pin/i, ERR.pin], [/not player/i, ERR.notplayer], [/bad pin format/i, ERR.pinfmt],
     [/pin locked/i, ERR.pinlock], [/seat taken/i, ERR.seattaken],
+    [/locked/i, ERR.locked], [/no quest/i, '퀘스트를 찾을 수 없어요.'], [/could not find the function|function .* does not exist/i, '전체 게시판 준비가 아직 안 됐어요. 선생님께 알려 주세요.'],
     [/own quest/i, '내 퀘스트에는 하트를 누를 수 없어요.'], [/not solved/i, '보물을 찾은 뒤에 하트를 누를 수 있어요.']];
   const call = async (fn, args) => { const {data, error} = await sb.rpc(fn, args);
     if(error){ const hit = MSG.find(([re]) => re.test(error.message)); throw new Error(hit ? hit[1] : '서버에 연결하지 못했어요. 잠시 뒤 다시 해 주세요.'); }
@@ -1121,6 +1152,9 @@ function makeSupaStore(){
       p_layout:p.layout, p_directions:p.directions, p_row:p.treasure.r, p_col:p.treasure.c, p_icon:p.icon, p_revisions:p.revisions, p_listens:p.listens}); },
     async check(code, num, r, c, pid){ return !!(await call('tqs_check',{p_code:C(code), p_num:num, p_row:r, p_col:c, p_player:pid})); },
     async toggleHeart(code, num, pid){ return await call('tqs_toggle_heart',{p_code:C(code), p_num:num, p_player:pid}); },
+    async allLobby(code, pid){ const d = await call('tqs_all_lobby',{p_code:C(code), p_player:pid}); return d ? {...d, quests:(d.quests||[]).map(fixQ)} : {open:false, solved:0, need:ALL_NEED}; },
+    async allGetQuest(code, pid, qid){ const d = await call('tqs_all_get_quest',{p_code:C(code), p_player:pid, p_qid:qid}); return d ? fixQ(d) : null; },
+    async allCheck(code, pid, qid, r, c){ return !!(await call('tqs_all_check',{p_code:C(code), p_player:pid, p_qid:qid, p_row:r, p_col:c})); },
     async updateTitleByCreator(code, num, pid, title){ const ok = await call('tqs_update_title',{p_code:C(code), p_num:num, p_player:pid, p_title:title}); if(!ok) throw new Error('내 퀘스트만 고칠 수 있어요.'); },
     async tSignup(school, pw, join, wrapped, salt, pub, priv_enc, key_id){ return await call('tqs_t_signup',{p_school:school, p_pw:pw, p_join:join||null, p_wrapped:wrapped, p_salt:salt, p_pub:pub, p_priv_enc:priv_enc, p_key_id:key_id}); },
     async tLogin(school, pw){ return await call('tqs_t_login',{p_school:school, p_pw:pw}); },
@@ -1199,7 +1233,7 @@ const S = {
   view:'home', after:null,
   profile: lsGet('tq_profile_v9', null),
   creator:null, player:null, lobby:{filter:'all', sort:'new', edit:null, mode:lsGet('tq_findmode','read')}, mySolved:new Set(),
-  teacher:{code:null, key:null, data:null, tab:'quests', open:null, confirm:null, edit:null, seatEdit:null, admin:null}
+  teacher:{code:null, key:null, data:null, tab:'board', open:null, confirm:null, edit:null, seatEdit:null, admin:null}
 };
 function newCreator(){ return { step:1, title:'', level:1, size:SIZE, icon:'t_chest', treasure:null, layout:{}, group:'b', sel:'bakery', directions:'', check:null, checkedText:null, walking:false, busy:false, helper:null, trail:null, revisions:0, listens:0 }; }
 /* ✍ 쓰던 지도 자동 저장: 창을 닫거나 새로고침해도 이 기기에서 이어서 쓸 수 있어요 (발행하면 지워져요) */
@@ -1259,7 +1293,7 @@ function mapHTML(o){
 /* 🍔 이스터 에그 (학생에게는 비밀): I love English. / I love (my) teacher. / Thank you, teacher. 를 쓰면
    캐릭터가 버거 쿼카로 바뀌고, 9×9 큰 지도로 넓힐 수 있어요 */
 const EGG_RE = /\bi\b[^.!?]*?\blove\b[^.!?]*?\b(?:english|teachers?)\b|\bthank(?:s|\s+you)\b[^.!?]*?\bteachers?\b|\bteachers?\b[^.!?]*?\bthank(?:s|\s+you)\b/;   // I (really) love (my English) teacher… / Thank you (so much), teacher
-const eggFace = text => EGG_RE.test(String(text||'').toLowerCase().replace(/[’‘`]/g,"'")) ? 'quokka' : null;
+const eggFace = text => EGG_RE.test(fixLookalike(text).toLowerCase().replace(/[’‘`]/g,"'")) ? 'quokka' : null;
 function curAvatar(){
   const base = (S.profile && S.profile.avatar) || 'boy1';
   if(S.view==='create' && S.creator && S.creator.eggChar) return 'quokka';
@@ -1368,7 +1402,7 @@ function minePop(open){
     <p class="hint" style="margin-top:2px">🔗 링크·QR 다시 보기 · 📋 이 지도로 하나 더 만들기 · 🗑 목록에서 지우기</p>${pubMineHTML()}`;
   document.body.appendChild(el);
 }
-function render(){ renderMe(); ({home:vHome, profile:vProfile, create:vCreate, published:vPublished, lobby:vLobby, play:vPlay, teacher:vTeacher, listen:vListenHub, speak:vSpeak, boardSetup:vBoardSetup, board:vBoard, showcase:vShowcase})[S.view](); }
+function render(){ renderMe(); ({home:vHome, profile:vProfile, create:vCreate, published:vPublished, lobby:vLobby, all:vAll, play:vPlay, teacher:vTeacher, listen:vListenHub, speak:vSpeak, boardSetup:vBoardSetup, board:vBoard, showcase:vShowcase})[S.view](); }
 function needProfile(next){ if(S.profile) return false; S.after = next; go('profile'); return true; }
 
 function vHome(){
@@ -1528,8 +1562,8 @@ function vCreate(){
       <div class="writegrid">
         <div class="writecol">
           <label class="sub" for="dir">내 안내문 쓰기 <span class="hint">· 보물이 있는 건물 이름은 쓰지 않아요</span></label>
-          <textarea class="write" id="dir" placeholder="Go straight ..." maxlength="600" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="sentences" ${C.walking?'disabled':''}>${esc(C.directions)}</textarea>
-          <div class="row between"><span class="hint" id="dirCount">${C.directions.length} / 600</span><span class="err" id="dirErr" style="margin:0"></span></div>
+          <textarea class="write" id="dir" placeholder="Go straight ..." maxlength="800" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="sentences" ${C.walking?'disabled':''}>${esc(C.directions)}</textarea>
+          <div class="row between"><span class="hint" id="dirCount">${C.directions.length} / 800</span><span class="err" id="dirErr" style="margin:0"></span></div>
         </div>
         <aside class="refs ${L.frames?'withframes':''}" aria-label="쓰기 도움">
           ${L.frames ? framesHTML(C) : ''}
@@ -1539,7 +1573,7 @@ function vCreate(){
       </div>
       <div id="checklist">${checklistHTML()}</div>
       <div class="row actions"><button class="btn" data-act="prev" ${C.walking?'disabled':''}>← 이전</button>
-        <button class="btn" data-act="readAloud" ${C.walking?'disabled':''} title="내 글을 듣고 소리 내어 따라 읽어요">🔊 듣고 따라 읽기${C.listens?` <small>(${C.listens})</small>`:''}</button>
+        <button class="btn" data-act="readAloud" ${C.walking?'disabled':''} title="내 글을 듣고 소리 내어 따라 읽어요">🔊 듣고 따라 읽기</button>
         <button class="btn blue" data-act="walk" ${C.walking?'disabled':''}>🚶 걸어 보기</button>
         <button class="btn green" data-act="publish" ${canPublish(C) && !C.busy && !C.walking?'':'disabled'}>${C.busy?'발행하는 중…':publishLabel(C)}</button></div>
       <p class="hint" id="pubHint">${esc(pubHintText(C))}</p>
@@ -1554,7 +1588,7 @@ function vCreate(){
   const ta = $('#dir');
   if(ta){
     ta.addEventListener('input', () => {
-      C.directions = ta.value; $('#dirCount').textContent = ta.value.length+' / 600'; $('#dirErr').textContent = '';
+      C.directions = ta.value; $('#dirCount').textContent = ta.value.length+' / 800'; $('#dirErr').textContent = '';
       if(C.check && C.checkedText !== C.directions){ C.check = null; C.trail = null; $('#checkArea').innerHTML = ''; }
       refreshChecklist();
       const face = eggFace(C.directions);
@@ -1709,7 +1743,10 @@ function drawLobby(){
       <div class="stamps">${friends.slice().sort((a,b)=>a.num-b.num).map(q=>`<img src="${ICON.t_chest}" class="${solved.has(q.num)?'':'off'}" title="#${q.num} ${esc(q.title)}" alt="">`).join('')}</div>
       <p class="hint" style="margin-top:4px">찾은 보물 ${done.length}개 · 내 퀘스트가 받은 하트 ❤️ ${myHearts}개</p></div>
     <div class="big">${done.length}<small> / ${friends.length}</small></div>
-  </div>`;
+  </div>${(() => { const need = Math.max(1, Math.min(ALL_NEED, friends.length)), open = friends.length > 0 && done.length >= need;
+    return open ? `<div class="allopen"><span>🌏 <b>전체 게시판이 열렸어요!</b> 다른 반 친구들의 퀘스트도 풀 수 있어요.</span><button class="btn primary small" data-act="toAll">🌏 전체 게시판 가기</button></div>`
+      : `<div class="alllock">🔒 <b>전체 게시판</b> · 우리 반 친구 보물을 <b>${need}개</b> 찾으면 다른 반 퀘스트도 열려요 <span class="hint">(${Math.min(done.length, need)} / ${need})</span>
+        <div class="bar"><i style="width:${Math.round(Math.min(done.length, need)/need*100)}%"></i></div></div>`; })()}`;
   let shown = list.filter(q => L.filter==='all' ? true : L.filter==='todo' ? !solved.has(q.num) && !q.is_mine : L.filter==='mine' ? q.is_mine : L.filter==='big' ? q.size===9 : q.level===+L.filter);
   shown = shown.slice().sort((a,b) => L.sort==='heart' ? (b.hearts||0)-(a.hearts||0) || b.num-a.num : b.num-a.num);
   $('#qlist').innerHTML = shown.length ? `<div class="qlist">${shown.map(q=>{
@@ -1741,6 +1778,8 @@ function drawLobby(){
 function heartBtn(){
   const PL = S.player, q = PL.quest;
   if(q.shared) return `<p class="hint">링크로 받은 퀘스트예요. 기록과 하트는 남지 않아요.</p>`;
+  if(q.teacher) return `<p class="hint">선생님 보기예요. 기록과 하트는 남지 않아요.</p>`;
+  if(q.all) return `<p class="hint">🌏 다른 반 친구의 퀘스트예요. 하트는 우리 반 퀘스트에만 줄 수 있어요.</p>`;
   if(q.example) return `<p class="hint">연습 지도는 기록과 하트가 남지 않아요.</p>`;
   if(q.is_mine) return `<p class="hint">내 퀘스트예요. 친구들이 하트를 ❤️ ${q.hearts||0}개 눌렀어요.</p>`;
   const can = PL.solved || S.mySolved.has(q.num);
@@ -1781,7 +1820,7 @@ function vPlay(){
   <div class="work">
     <div class="mapcol">${mapHTML({size:q.size, start:q.start || qStart(q.layout), layout:arr2obj(q.layout), pick:PL.solved?null:PL.pick, treasure:PL.solved?PL.pick:null, icon:q.icon, found:PL.solved, clickable:!PL.solved, avatar:curAvatar()})}${PL.solved?'':padHTML()}</div>
     <div class="side">
-      <div class="who"><span style="font-family:var(--f-en);font-weight:600;color:var(--sky)">${q.gen?'👂':q.example?'연습 '+q.ex:'#'+q.num}</span><span class="qtitle">${esc(q.title)}</span>${(q.gen || q.is_mine) ? lvlTag(q.level) : ''}${bigTag(q)}${q.is_mine?'<span class="tag minetag">내 퀘스트</span>':''}</div>
+      <div class="who"><span style="font-family:var(--f-en);font-weight:600;color:var(--sky)">${q.gen?'👂':q.all?esc(q.label)+' #'+q.num:q.teacher?'#'+q.num:q.example?'연습 '+q.ex:'#'+q.num}</span><span class="qtitle">${esc(q.title)}</span>${(q.gen || q.is_mine) ? lvlTag(q.level) : ''}${bigTag(q)}${q.is_mine?'<span class="tag minetag">내 퀘스트</span>':''}</div>
       <div class="goal"><img src="${ICON[q.icon]}" alt=""><span>찾을 보물: <b style="font-family:var(--f-en)">${TREASURES[q.icon]}</b></span></div>
       ${PUBLIC && q.ex ? '' : modeTabs(PL.listen)}
       ${PL.listen && !PL.solved && !PL.reveal ? listenBox(PL) : `<div class="row between"><h2>${PL.listen?'들은 안내문 확인하기':'길 안내문을 읽어요'}</h2><button class="btn small" data-act="speak">🔊 듣기</button></div>
@@ -1791,14 +1830,14 @@ function vPlay(){
       ${PL.tries ? `<p class="hint">도전 횟수: ${PL.tries}번</p>` : ''}
       <div id="heartSide">${heartBtn()}</div>
       ${q.gen ? genBar() : ''}
-      <div class="row"><button class="btn" data-act="${q.gen?'toListen':'toLobby'}">${q.gen?'← 나가기':'← 목록으로'}</button>${q.gen?'<button class="btn" data-act="genNext">🔄 새 지도</button>':''}<button class="btn primary" data-act="submit" ${PL.pick&&!PL.busy&&!PL.solved?'':'disabled'}>${PL.busy?'확인하는 중…':'여기에 보물이 있다! 제출'}</button></div>
+      <div class="row"><button class="btn" data-act="${q.gen?'toListen':q.teacher?'tBoardBack':q.all?'toAll':'toLobby'}">${q.gen?'← 나가기':q.teacher?'← 게시판으로':q.all?'← 전체 게시판':'← 목록으로'}</button>${q.gen?'<button class="btn" data-act="genNext">🔄 새 지도</button>':''}<button class="btn primary" data-act="submit" ${PL.pick&&!PL.busy&&!PL.solved?'':'disabled'}>${PL.busy?'확인하는 중…':'여기에 보물이 있다! 제출'}</button></div>
     </div>
   </div>
   ${PL.solved && !PL.closed ? `<div class="overlay" role="dialog" aria-modal="true" aria-label="성공"><div class="modal">
       <img class="big" src="${ICON[q.icon]}" alt=""><h2>Success!</h2><p style="font-family:var(--f-display);font-size:1.3rem">보물을 찾았습니다! 🎉</p>
       <p class="hint">${PL.tries+1}번 만에 「${esc(q.title)}」의 ${TREASURES[q.icon]}을(를) 찾았어요.</p>
       <div id="heartModal" style="margin-top:12px">${heartBtn()}</div>
-      <div class="row" style="justify-content:center;margin-top:16px">${q.gen ? '<button class="btn blue" data-act="genNext">다음 문제 →</button>' : '<button class="btn blue" data-act="toLobby">다른 퀘스트 풀기</button>'}<button class="btn" data-act="closeModal">지도 보기</button></div>
+      <div class="row" style="justify-content:center;margin-top:16px">${q.gen ? '<button class="btn blue" data-act="genNext">다음 문제 →</button>' : q.teacher ? '<button class="btn blue" data-act="tBoardBack">← 게시판으로</button>' : q.all ? '<button class="btn blue" data-act="toAll">다른 퀘스트 풀기</button>' : '<button class="btn blue" data-act="toLobby">다른 퀘스트 풀기</button>'}<button class="btn" data-act="closeModal">지도 보기</button></div>
     </div></div>` : ''}`;
   if(PL.helper && !PL.solved) placeWalker(PL.helper, {instant:true});
 }
@@ -1932,18 +1971,19 @@ function teacherModel(){
   const who = (id, seat, avatar) => (ppl[id] = ppl[id] || {id, seat, avatar, made:0, solved:0, tries:0, hearts:0, quests:[], solvedTries:[]});
   (D0.players||[]).forEach(p => { const w = who(p.player_id, p.seat, p.avatar); w.seat = p.seat; w.avatar = p.avatar || w.avatar; w.has_pin = !!p.has_pin; w.player = true; });
   qs.forEach(q => { const w = who(q.player_id, q.seat, q.avatar); w.made++; w.hearts += (q.hearts||0); w.quests.push(q); if(w.seat==null) w.seat = q.seat; });
-  (D0.plays||[]).forEach(p => { const w = who(p.player_id, null, null); w.tries += p.tries; if(p.solved){ w.solved++; w.solvedTries.push(p.tries); } });
+  const inClass = new Set([...(D0.players||[]).map(p => p.player_id), ...qs.map(q => q.player_id)]);
+  (D0.plays||[]).filter(p => inClass.has(p.player_id)).forEach(p => { const w = who(p.player_id, null, null); w.tries += p.tries; if(p.solved){ w.solved++; w.solvedTries.push(p.tries); } });
   const people = Object.values(ppl).map(p => ({...p, name:nameOfId(p.id)})).sort((a,b)=>(a.seat??999)-(b.seat??999));
   return {qs, people};
 }
 /* ===== 평가 기준 (범주: AI도구를 활용한 영어 글쓰기 및 의미 전달) =====
    상: 표현 목록만 참고(⭐⭐·⭐⭐⭐ 단계) · 4문장 이상 · between 등 위치 표현 · 보물에 정확히 도착
-       · 피드백을 스스로 반영해 고쳐 쓰기 · 낭독 연습(듣고 따라 읽기) 참여
+       · 피드백을 스스로 반영해 고쳐 쓰기 (고쳐 쓰기 횟수는 근거로만 표시)
    중: 표현 목록 참고(⭐⭐ 이상) · next to(또는 between) 포함 4문장 이상 · 피드백 반영 후 게시판(퀘스트 목록) 공유
    하: 문장 틀(⭐ 기본)을 활용하여 3문장 이상 완성 */
 const RUBRIC_CATEGORY = 'AI도구를 활용한 영어 글쓰기 및 의미 전달';
 function gradeQuest(q){
-  const m = questMetrics(q), lv = q.level || 0, rev = q.revisions, lis = q.listens;
+  const m = questMetrics(q), lv = q.level || 0, rev = q.revisions;
   const listOnly = lv >= 2, enough4 = m.sentCount >= 4, posExpr = m.betweenOk > 0 || m.turnAtOk > 0, near = m.nextOk > 0 || m.betweenOk > 0;
   const why = [];
   why.push(lv ? `${LV[lv].name} 단계(${listOnly?'표현 목록':'문장 틀'})` : '예전 퀘스트(단계 정보 없음)');
@@ -1952,15 +1992,13 @@ function gradeQuest(q){
   if(m.betweenOk) why.push('between ✓'); if(m.turnAtOk) why.push('Turn ~ at the ✓'); if(m.nextOk) why.push('next to ✓');
   if(m.reveal) why.push('보물 장소 이름 노출');
   why.push(rev==null ? '고쳐 쓰기 기록 없음(예전 퀘스트)' : rev>0 ? `피드백 반영 고쳐 쓰기 ${rev}회` : '첫 확인에 바로 통과');
-  why.push(lis==null ? '낭독 연습 기록 없음(예전 퀘스트)' : `낭독 연습 ${lis}회`);
   let level = '하';
-  if(m.ok && listOnly && enough4 && posExpr && (lis||0) > 0) level = '상';
+  if(m.ok && listOnly && enough4 && posExpr) level = '상';
   else if(m.ok && listOnly && enough4 && near) level = '중';
   const check = [];
-  if(rev==null || lis==null) check.push('예전 퀘스트라 고쳐 쓰기·낭독 기록이 없어요');
+  if(rev==null) check.push('예전 퀘스트라 고쳐 쓰기 기록이 없어요');
   if(level==='상' && rev===0) check.push('첫 확인에 바로 통과해 고쳐 쓰기 기록이 없어요');
   if(level==='하' && lv===1 && enough4 && near && m.ok) check.push('문장 틀 단계지만 중 수준의 글이에요');
-  if(level!=='상' && m.ok && listOnly && enough4 && posExpr && !(lis>0)) check.push('낭독 연습 기록만 없어 중으로 판단했어요');
   return {level, m, why:why.join(' · '), check:check.join(' / ')};
 }
 const RANK = {상:3, 중:2, 하:1};
@@ -1978,8 +2016,8 @@ function evalComment(p){
     if(g.level==='상'){
       const pos = m.betweenOk ? "'between'" : "'Turn left/right at ~'";
       parts.push(`표현 목록만 참고하여 ${m.sentCount}문장의 길 안내 글을 쓰고, ${pos} 등 위치 표현을 활용하여 친구가 보물을 정확히 찾을 수 있도록 의미를 전달함.`);
-      parts.push(q.revisions>0 ? 'AI 도구의 피드백을 스스로 반영하여 글을 고쳐 쓰고, 자신의 글을 듣고 따라 읽으며 낭독 연습에 주도적으로 참여함.'
-                               : 'AI 도구로 자신의 글을 꼼꼼히 점검하고, 자신의 글을 듣고 따라 읽으며 낭독 연습에 주도적으로 참여함.');
+      parts.push(q.revisions>0 ? 'AI 도구의 피드백을 스스로 반영하여 글을 고쳐 쓰며 정확한 길 안내 글을 완성함.'
+                               : 'AI 도구로 자신의 글을 꼼꼼히 점검하여 정확한 길 안내 글을 완성함.');
     } else if(g.level==='중'){
       parts.push(`표현 목록을 참고하여 ${m.nextOk ? "'next to'를 포함한 " : "'between'을 포함한 "}${m.sentCount}문장의 길 안내 글을 작성함.`);
       parts.push(q.revisions>0 ? 'AI 도구의 피드백을 반영하여 고친 글을 게시판에 공유함.' : '완성한 글을 AI 도구로 점검한 뒤 게시판에 공유함.');
@@ -2000,7 +2038,7 @@ function evalRows(people){
       '만든 퀘스트 수':p.made, '대표 퀘스트':q ? `#${q.num} ${q.title}` : '', '쓰기 단계':q && LV[q.level] ? LV[q.level].name : (q?'예전 퀘스트':''),
       '문장 수':m ? m.sentCount : '', '정확히 도착':m ? (m.ok?'O':'X') : '', 'next to':m ? (m.nextOk?'O':m.nextUsed?'△':'X') : '',
       'between':m ? (m.betweenOk?'O':m.betweenUsed?'△':'X') : '', 'Turn ~ at the':m ? (m.turnAtOk?'O':m.turnAtUsed?'△':'X') : '',
-      '고쳐 쓰기(피드백 반영)':q ? (q.revisions ?? '') : '', '낭독 연습':q ? (q.listens ?? '') : '',
+      '고쳐 쓰기(피드백 반영)':q ? (q.revisions ?? '') : '',
       '받은 하트':p.hearts, '찾은 친구 퀘스트':p.solved, '안내문':q ? q.directions.replace(/\s*\n\s*/g,' ') : '', '평가 문장':evalComment(p)
     };
   });
@@ -2049,7 +2087,13 @@ function drawTeacher(){
   const totalFriendQ = qs.length;
   const noName = people.filter(p => !p.name).length;
   let body = '';
-  if(T.tab==='quests'){
+  if(T.tab==='board'){
+    body = `<div class="row between" style="margin-bottom:8px"><p class="hint">학생들이 보는 <b>${esc(D0.label||'')}</b> 퀘스트 게시판이에요. 카드를 누르면 정답을 알고 있는 선생님 화면으로 열려요. (기록·하트는 남지 않아요)</p></div>` + (qs.length
+      ? `<div class="qlist tboard">${qs.map(q => `<div class="qcard ${q.size===9?'big':''}"><button class="qopen" data-tplay="${q.num}" aria-label="${esc(q.title)} 열기"></button>
+          <img src="${ICON[q.icon]||ICON.t_chest}" alt=""><span style="min-width:0"><span class="num">#${q.num}</span> ${lvlTag(q.level)}${bigTag(q)}<span class="tt">${esc(q.title)}</span>
+          <span class="meta">${seatName(people.find(p=>p.id===q.player_id)?.seat ?? q.seat, q.player_id)} · <span class="hcount">❤️ ${q.hearts||0}</span> · 푼 친구 ${q.solves||0}명</span></span></div>`).join('')}</div>`
+      : `<div class="empty">아직 학생들이 발행한 퀘스트가 없어요. 학생들에게 반 코드 <b>${esc(T.code)}</b>를 알려 주세요.</div>`);
+  } else if(T.tab==='quests'){
     body = qs.length ? `<div class="tbl-wrap"><table class="tquests"><thead><tr><th>번호</th><th>지도 이름</th><th>만든 학생</th><th>단계</th><th class="n">문장</th><th>next to</th><th>between</th><th>도착</th><th class="n">하트</th><th class="n">성공</th><th></th></tr></thead><tbody>
       ${qs.map(q=>{ const m = questMetrics(q); return `<tr><td>#${q.num}</td>
         <td>${T.edit===q.num ? `<span class="row" style="flex-wrap:nowrap;gap:6px"><input class="input" id="tEditTitle" value="${esc(q.title)}" maxlength="20" style="min-width:140px;padding:6px 10px;font-size:.92rem"><button class="btn small primary" data-act="tSaveTitle">저장</button><button class="btn small" data-act="tCancelEdit">취소</button></span>`
@@ -2061,7 +2105,7 @@ function drawTeacher(){
         ${T.open===q.num?`<tr><td colspan="11" style="padding:0"><div class="tq">
           ${mapHTML({size:q.size, start:qStart(q.layout), layout:arr2obj(q.layout), treasure:q.treasure, icon:q.icon, avatar:q.avatar})}
           <div class="side"><div class="directions">${esc(q.directions)}</div>
-          <p class="hint">${q.size}×${q.size} 지도 · ${m.sentCount}문장 · Turn ~ at the ___ ${m.turnAtOk?'✓':m.turnAtUsed?'△':'—'} · 고쳐 쓰기 ${q.revisions??'—'}회 · 듣고 따라 읽기 ${q.listens??'—'}회</p>
+          <p class="hint">${q.size}×${q.size} 지도 · ${m.sentCount}문장 · Turn ~ at the ___ ${m.turnAtOk?'✓':m.turnAtUsed?'△':'—'} · 고쳐 쓰기 ${q.revisions??'—'}회</p>
           ${T.confirm===q.num ? `<div class="row"><span class="bad-t">이 퀘스트와 풀이 기록을 지울까요?</span><button class="btn small danger" data-tdel="${q.num}">지우기</button><button class="btn small" data-act="tCancel">취소</button></div>`
             : `<div class="row"><button class="btn small" data-tconfirm="${q.num}">🗑 이 퀘스트 지우기</button></div>`}</div></div></td></tr>`:''}`;}).join('')}
       </tbody></table></div><p class="hint" style="margin-top:8px">✓ 맞게 씀 · △ 썼지만 보물 칸 옆 장소가 아님 · — 쓰지 않음</p>`
@@ -2102,7 +2146,7 @@ function drawTeacher(){
   } else {
     const rows = evalRows(people);
     body = rows.length ? `<div class="row between" style="margin-bottom:10px"><details class="rubric"><summary>평가 기준 · ${RUBRIC_CATEGORY}</summary>
-          <p><b>상</b> 표현 목록만 참고(⭐⭐·⭐⭐⭐) · 4문장 이상 · between 등 위치 표현 · 보물에 정확히 도착 · 듣고 따라 읽기(낭독 연습) 1회 이상 · 고쳐 쓰기 횟수는 근거로 표시</p>
+          <p><b>상</b> 표현 목록만 참고(⭐⭐·⭐⭐⭐) · 4문장 이상 · between 등 위치 표현 · 보물에 정확히 도착 · 고쳐 쓰기 횟수는 근거로 표시</p>
           <p><b>중</b> 표현 목록 참고(⭐⭐ 이상) · next to(또는 between) 포함 4문장 이상 · 정확히 도착해 발행(게시판 공유)</p>
           <p><b>하</b> 문장 틀(⭐ 기본) 활용 3문장 이상 완성, 또는 위 기준에 미치지 못함</p>
           <p class="hint">대표 퀘스트는 학생이 만든 퀘스트 중 가장 높은 수준의 것이에요. 자동 판단이니 '확인 필요'를 보고 다듬어 쓰세요.</p></details>
@@ -2118,7 +2162,7 @@ function drawTeacher(){
   <div class="card classhead"><div class="row between">
     <div><h2>${esc(D0.label)}</h2><p class="hint">반 코드 <span class="codechip">${esc(T.code)}</span> · 퀘스트 ${qs.length}개 · 학생 ${people.length}명</p></div>
     <div class="row"><button class="btn small" data-copy="${esc(T.code)}">코드 복사</button><button class="btn small blue" data-act="tQR">QR 코드 내려받기</button></div></div></div>
-  <div class="tabs" style="margin:14px 0 10px">${[['quests','퀘스트'],['people','학생 관리'],['eval','통지표 문장 · CSV'],['settings','반 설정']].map(([k,l])=>`<button class="tab ${T.tab===k?'sel':''}" data-ttab="${k}">${l}</button>`).join('')}</div>
+  <div class="tabs" style="margin:14px 0 10px">${[['board','📋 게시판'],['quests','퀘스트 표'],['people','학생 관리'],['eval','통지표 문장 · CSV'],['settings','반 설정']].map(([k,l])=>`<button class="tab ${T.tab===k?'sel':''}" data-ttab="${k}">${l}</button>`).join('')}</div>
   ${body}`;
   const nc = $('#newClass'); if(nc){ nc.focus(); nc.addEventListener('keydown', e => { if(e.key==='Enter') act('tAddClass'); }); }
   const te = $('#tEditTitle'); if(te){ te.focus(); te.addEventListener('keydown', e => { if(e.key==='Enter') act('tSaveTitle'); if(e.key==='Escape') act('tCancelEdit'); }); }
@@ -2565,6 +2609,38 @@ async function dupQuest(num){
     toast('지도를 그대로 가져왔어요. 고치고 싶은 곳을 바꾸고, 길 안내는 새로 써요.');
   }catch(e){ toast(e.message); }
 }
+/* 🌏 전체 게시판: 같은 선생님의 다른 반 퀘스트 (우리 반 보물을 충분히 찾은 학생만) */
+async function vAll(){
+  const P = S.profile, A = S.all = S.all || {filter:'all'};
+  app.innerHTML = `<div class="row between" style="margin-top:8px"><h2>🌏 전체 게시판 <span class="hint">· 다른 반 친구들의 퀘스트</span></h2><button class="btn small" data-act="toLobby">← 우리 반 게시판</button></div>
+    <div id="allBody"><p class="hint" style="margin-top:12px">불러오는 중…</p></div>`;
+  try{
+    const d = await store.allLobby(P.space, P.id); if(S.view!=='all') return;
+    A.data = d; drawAll();
+  }catch(e){ const b = $('#allBody'); if(b) b.innerHTML = `<div class="empty" style="margin-top:12px">${esc(e.message)}</div>`; }
+}
+function drawAll(){
+  const A = S.all, d = A.data, b = $('#allBody'); if(!b || !d) return;
+  if(!d.open){ b.innerHTML = `<div class="empty" style="margin-top:12px">🔒 우리 반 친구 보물을 <b>${d.need}개</b> 찾으면 열려요. 지금 <b>${d.solved}개</b> 찾았어요.</div>`; return; }
+  const list = d.quests || [], done = list.filter(q => q.solved).length;
+  const shown = list.filter(q => A.filter==='todo' ? !q.solved : true);
+  const groups = [...new Set(shown.map(q => q.label))];
+  b.innerHTML = `<div class="row between" style="margin-top:10px"><div class="tabs">${[['all','전체'],['todo','아직 못 찾은 것']].map(([v,l])=>`<button class="tab ${A.filter===v?'sel':''}" data-afilter="${v}">${l}</button>`).join('')}</div>
+      <span class="hint">다른 반 보물 <b>${done}</b> / ${list.length}개 찾음</span></div>
+    ${groups.length ? groups.map(g => `<h3 class="allg">${esc(g)}</h3><div class="qlist">${shown.filter(q => q.label===g).map(q => `<div class="qcard ${q.solved?'solved':''} ${q.size===9?'big':''}">
+        <button class="qopen" data-aopen="${q.id}" aria-label="${esc(g)} #${q.num} ${esc(q.title)} 열기"></button>
+        <img src="${ICON[q.icon]||ICON.t_chest}" alt=""><span style="min-width:0"><span class="num">${esc(g)} · #${q.num}</span> ${bigTag(q)}
+        <span class="tt">${esc(q.title)}</span><span class="meta">${q.solved?'<b class="ok-t">✓ 찾았어요</b> · ':''}${q.solves}명 성공</span></span></div>`).join('')}</div>`).join('')
+      : `<div class="empty" style="margin-top:12px">${list.length ? '다른 반 퀘스트를 모두 찾았어요! 🎉' : '아직 다른 반에 발행된 퀘스트가 없어요.'}</div>`}`;
+}
+async function openAll(id){
+  try{
+    const q = await store.allGetQuest(S.profile.space, S.profile.id, id);
+    if(!q){ toast('그 퀘스트를 찾을 수 없어요.'); return; }
+    S.player = { quest:{...q, all:true}, pick:null, tries:0, msg:false, solved:false, busy:false, closed:false, helper:null, listen:S.lobby.mode==='listen', si:0, reveal:false };
+    go('play');
+  }catch(e){ toast(e.message); }
+}
 async function openQuest(num){
   try{
     const q = await store.getQuest(S.profile.space, num, S.profile.id);      // 퀘스트 + 내가 찾았는지를 한 번에 받아요
@@ -2658,6 +2734,7 @@ async function act(a){
       startCreator(); go('create'); break;
     }
     case 'toLobby': if(needProfile('lobby')) return; go('lobby'); break;
+    case 'toAll': if(needProfile('lobby')) return; go('all'); break;
     case 'toTeacher': T.confirm = null; T.me = null; go('teacher'); break;
     case 'pNext': {
       const t = S.ptmp, err = $('#pErr');
@@ -2770,7 +2847,7 @@ async function act(a){
       if(!t){ toast('먼저 안내문을 써요.'); return; }
       try{ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'en-US'; u.rate = .85; speechSynthesis.speak(u); }
       catch(e){ toast('이 기기에서는 읽어 주기를 쓸 수 없어요. 소리 내어 직접 읽어 봐요.'); }
-      C.listens++; const b = document.querySelector('[data-act="readAloud"]'); if(b) b.innerHTML = `🔊 듣고 따라 읽기 <small>(${C.listens})</small>`;
+      C.listens++;
       toast('잘 듣고 소리 내어 따라 읽어 봐요! 🗣️');
       break;
     }
@@ -2796,6 +2873,7 @@ async function act(a){
       PL.busy = true; vPlay();
       try{
         const ok = PL.quest.example ? (PL.pick.r===PL.exTreasure.r && PL.pick.c===PL.exTreasure.c)
+          : PL.quest.all ? await store.allCheck(S.profile.space, S.profile.id, PL.quest.id, PL.pick.r, PL.pick.c)
           : await store.check(S.profile.space, PL.quest.num, PL.pick.r, PL.pick.c, S.profile.id);
         PL.busy = false;
         if(PL.quest.gen){ if(!PL.counted){ S.listenStats.total++; PL.counted = true; } if(ok) S.listenStats.done++; }
@@ -2823,7 +2901,7 @@ async function act(a){
         const r = await store.tLogin(school, pw);
         if(!r){ err.textContent = ERR.login; return; }
         const dk = await ensureKeys(r.token, pw, r.wrapped, r.salt);
-        Object.assign(T, {token:r.token, school:r.school, dk, priv:null, privId:null, code:null, tab:'quests', me:null, data:null});
+        Object.assign(T, {token:r.token, school:r.school, dk, priv:null, privId:null, code:null, tab:'board', me:null, data:null});
         saveTeacherSession(); vTeacher();
       }catch(e){ err.textContent = e.message; }
       break;
@@ -2838,7 +2916,7 @@ async function act(a){
         const k = CRYPTO_OK ? await newDataKey(pw) : {dk:null, wrapped:null, salt:null};
         const kp = CRYPTO_OK ? await newKeyPair(k.dk) : {pub:null, priv_enc:null, key_id:null};
         const r = await store.tSignup(school, pw, join, k.wrapped, k.salt, kp.pub, kp.priv_enc, kp.key_id);
-        Object.assign(T, {token:r.token, school:r.school, dk:k.dk, priv:null, privId:null, code:null, tab:'quests', me:null, data:null, adding:true});
+        Object.assign(T, {token:r.token, school:r.school, dk:k.dk, priv:null, privId:null, code:null, tab:'board', me:null, data:null, adding:true});
         saveTeacherSession(); vTeacher(); toast('가입했어요! 이제 맡은 반을 추가해요.');
       }catch(e){ err.textContent = e.message; }
       break;
@@ -2850,7 +2928,7 @@ async function act(a){
       const label = norm($('#newClass').value);
       if(!label){ toast('반 이름을 써 주세요. (예: 5-1)'); return; }
       if(hasBad(label)){ toast('쓸 수 없는 말이 들어 있어요.'); return; }
-      try{ const r = await store.tAddClass(T.token, label); T.adding = false; T.code = r.code; T.tab = 'quests'; await vTeacher(); downloadQR(r.code, r.label || label); }
+      try{ const r = await store.tAddClass(T.token, label); T.adding = false; T.code = r.code; T.tab = 'board'; await vTeacher(); downloadQR(r.code, r.label || label); }
       catch(e){ toast(e.message); }
       break;
     }
@@ -2895,7 +2973,8 @@ async function act(a){
       break;
     }
     case 'tCancel': T.confirm = null; drawTeacher(); break;
-    case 'tBack': T.tab = 'quests'; T.confirm = null; T.data ? drawTeacher() : vTeacher(); break;
+    case 'tBoardBack': T.tab = 'board'; go('teacher'); break;
+    case 'tBack': T.tab = 'board'; T.confirm = null; T.data ? drawTeacher() : vTeacher(); break;
     case 'tCancelSeat': T.seatEdit = null; drawTeacher(); break;
     case 'tSaveSeat': {
       const to = parseInt($('#sSeat').value,10), p = teacherModel().people.find(x => x.id===T.seatEdit);
@@ -3004,7 +3083,7 @@ async function copy(text){
 }
 
 document.addEventListener('click', e => {
-  const el = e.target.closest('[data-act],[data-r],[data-pal],[data-open],[data-ex],[data-tseat],[data-tname],[data-tpin],[data-trmok],[data-tclass],[data-treset],[data-copy],[data-lvl],[data-sort],[data-edit],[data-tedit],[data-icon],[data-group],[data-av],[data-filter],[data-ttab],[data-topen],[data-tconfirm],[data-tdel],[data-pad],[data-pmode],[data-glvl],[data-pubopen],[data-pubqr],[data-pubdup],[data-pubdel],[data-dup],[data-hmix],[data-hpre],[data-bi],[data-spk]');
+  const el = e.target.closest('[data-act],[data-r],[data-pal],[data-open],[data-ex],[data-tseat],[data-tname],[data-tpin],[data-trmok],[data-tclass],[data-treset],[data-copy],[data-lvl],[data-sort],[data-edit],[data-tedit],[data-icon],[data-group],[data-av],[data-filter],[data-ttab],[data-topen],[data-tconfirm],[data-tdel],[data-pad],[data-pmode],[data-glvl],[data-pubopen],[data-pubqr],[data-pubdup],[data-pubdel],[data-dup],[data-hmix],[data-hpre],[data-bi],[data-spk],[data-tplay],[data-aopen],[data-afilter]');
   if(!el || el.disabled) return;
   const d = el.dataset, C = S.creator, T = S.teacher;
   if(d.act) return act(d.act);
@@ -3024,6 +3103,14 @@ document.addEventListener('click', e => {
     document.querySelectorAll('[data-pmode]').forEach(b => { const on = b.dataset.pmode===d.pmode; b.classList.toggle('sel', on); b.setAttribute('aria-pressed', on); });
     return;
   }
+  if(d.aopen!==undefined) return openAll(+d.aopen);
+  if(d.afilter){ S.all.filter = d.afilter; return drawAll(); }
+  if(d.tplay!==undefined){                        // 선생님: 게시판에서 퀘스트 열기 (정답을 알고 있어서 기록 없이 바로 확인)
+    const q = S.teacher.data && S.teacher.data.quests.find(x => String(x.num)===String(d.tplay)); if(!q) return;
+    S.player = { quest:{num:q.num, teacher:true, example:true, egg:q.avatar==='quokka', title:q.title, level:q.level, size:q.size, start:qStart(q.layout), layout:q.layout, directions:q.directions, icon:q.icon, hearts:q.hearts||0},
+      exTreasure:q.treasure, pick:null, tries:0, msg:false, solved:false, busy:false, closed:false, helper:null, listen:false, si:0, reveal:false };
+    return go('play');
+  }
   if(d.pad) return padAct(d.pad);
   if(d.spk!==undefined){ S.spk.i = +d.spk; S.spk.target = null; S.spk.show = false; return vSpeak(); }
   if(d.r !== undefined) return cellClick(+d.r, +d.c);
@@ -3040,7 +3127,7 @@ document.addEventListener('click', e => {
   if(d.tclass){                                   // 같은 반을 눌러도(계정 화면 등에서) 반 화면으로 돌아와요
     const same = d.tclass===T.code;
     T.code = d.tclass; T.open = T.edit = T.seatEdit = T.nameEdit = T.confirm = null; T.renaming = false;
-    if(T.tab==='account') T.tab = 'quests';
+    if(T.tab==='account') T.tab = 'board';
     return same && T.data ? drawTeacher() : vTeacher(); }
   if(d.treset){ const inp = document.querySelector(`[data-resetpw="${d.treset}"]`), pw = inp && inp.value;
     if(!pw || pw.length < 6){ toast(ERR.shortpw); return; }
@@ -3110,7 +3197,7 @@ async function decodeQuest(code){
     if(key && cell>=0 && cell<n*n) layout[k(Math.floor(cell/n), cell%n)] = key;
   }
   const start = Array.isArray(o.st) ? {r:o.st[0], c:o.st[1], d:o.st[2]} : null;
-  const title = String(o.t||'').slice(0,20), directions = String(o.d||'').slice(0,600);
+  const title = String(o.t||'').slice(0,20), directions = String(o.d||'').slice(0,800);
   if(hasBad(title) || hasBad(directions)) return null;
   return {title, level:o.l||1, size:n, layout, start, treasure:{r:o.r[0], c:o.r[1]}, icon:TKEYS[o.i]||'t_chest', directions, egg:!!o.e, code};
 }
