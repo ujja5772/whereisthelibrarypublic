@@ -734,8 +734,9 @@ function checkDirections(text, n, layout, treasure, start){
   const st = startOf(n, start);
   let pos = [st.r, st.c], dir = st.d, turns = 0, moved = 0;
   const frames = [{r:pos[0], c:pos[1], dir, si:-1}];
-  text = fixLookalike(text);
-  const sents = (text.match(/[^.!?\n]+[.!?]*/g) || []).map(s => s.trim()).filter(Boolean).map(t => ({t, acts:[], warn:[], bad:false}));
+  const orig = (String(text||'').match(/[^.!?\n]+[.!?]*/g) || []).map(s => s.trim()).filter(Boolean);   // 철자 확인은 학생이 쓴 그대로
+  text = fixLookalike(text);        // 길 따라가기는 lt's → It's 로 알아듣고, 철자 확인에서 고치라고 알려 줘요
+  const sents = (text.match(/[^.!?\n]+[.!?]*/g) || []).map(s => s.trim()).filter(Boolean).map((t,i) => ({t, raw:orig[i] ?? t, acts:[], warn:[], bad:false}));
   let target = null, finalSi = -1, error = null;
   const stat = {turnAtUsed:0, turnAtOk:0, nextUsed:0, nextOk:0, betweenUsed:0, betweenOk:0, betweenBad:false, nextBad:false, placeIssues:[]};
   const wrongPlace = (i, msg) => { sents[i].warn.push(msg); sents[i].bad = true; stat.placeIssues.push(msg); };
@@ -835,7 +836,7 @@ function checkDirections(text, n, layout, treasure, start){
   sents.forEach(x => {
     const low = ' '+x.t.toLowerCase().replace(/[’‘`]/g,"'")+' ';
     const mentionsPlace = /treasure\s+is|treasure'?s\s+(?:next|between|on|in\s+front)/.test(low) || NAMES.some(({n:nm}) => new RegExp('[^a-z]'+nm.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[^a-z]').test(low));
-    x.typos = typosIn(x.t);
+    x.typos = typosIn(x.raw);
     x.kind = x.acts.length ? 'move' : mentionsPlace ? 'place' : x.typos.length ? 'typo' : 'other';
   });
   stat.typoCount = sents.reduce((a,x) => a + x.typos.length, 0);
